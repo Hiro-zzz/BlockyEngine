@@ -1,0 +1,27 @@
+// Proof that the viewport rebuilds chunks inside its loop rather than only
+// at startup.
+//
+// `ready` builds a flat field, which is what gets meshed before the first
+// frame. `tick` then puts a tower in the middle of it -- and `tick` runs
+// *during* the frame, after that mesh already existed. If the tower is in the
+// picture, the chunk cache noticed a stamp move and rebuilt one chunk while
+// the window was up.
+//
+// Used by `scene_live script=scenes/scripts/live_check.bly snapshot <png>`.
+
+on ready {
+    fillbox(vec(-8, -1, -8), vec(8, -1, 8), stone)
+    fillbox(vec(-8, 0, -8), vec(8, 0, 8), grass_block)
+    print("field laid, " + str(0) + " towers")
+}
+
+let built = false
+
+on tick(dt) {
+    if not built {
+        built = true
+        fillbox(vec(-1, 1, -1), vec(1, 5, 1), gold_block)
+        setblock(vec(0, 6, 0), glowstone)
+        print("tower placed from tick, after the first mesh")
+    }
+}
