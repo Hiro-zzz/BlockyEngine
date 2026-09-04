@@ -692,7 +692,9 @@ not transferable** — if you cannot defend a line under review, do not submit i
 ## Licence
 
 MIT — [LICENSE](LICENSE). Do what you like, keep the copyright notice, no
-warranty.
+warranty. [NOTICE](NOTICE) carries what the licence does not: the trademark
+note, where the gallery images came from, and the fact that there is no
+third-party code here to attribute.
 
 The engine is not affiliated with Mojang Studios or Microsoft; "Minecraft" is
 their trademark. There are no game assets here and none are required: block

@@ -1,0 +1,39 @@
+BlockyEngine -- notices
+=======================
+
+These notes used to sit at the bottom of LICENSE. They were moved here because
+appending anything to the licence text stops GitHub recognising the file as
+MIT: it reported the repository as NOASSERTION, which is a worse answer than
+either the licence or the notes deserve. LICENSE is now the MIT text and
+nothing else; what it does not say lives here.
+
+The licence covers the source in this repository and nothing else.
+
+
+Minecraft
+---------
+
+BlockyEngine is not affiliated with, endorsed by, or connected to Mojang
+Studios or Microsoft. "Minecraft" is a trademark of Mojang Studios.
+
+The engine ships no game assets and requires none. Block textures are generated
+in code, characters are drawn in code, and the built-in font is its own. What
+it can do is *read* an installation you already have -- a client .jar or a
+resource pack -- and some of the images under docs/gallery/ were rendered that
+way. Those images show textures belonging to their respective owners, are
+included to demonstrate the reader rather than to redistribute the artwork, and
+are marked as such in the gallery. Nothing under engine/, game/ or scenes/
+contains any of it.
+
+
+Third-party code
+----------------
+
+There is none. Every line under engine/, game/ and scenes/ was written for this
+project: the PNG codec, the ZIP reader, the OpenGL loader, the window, the
+maths, the physics solver, the scripting language and the H.264 encoder
+included. The only libraries linked are opengl32, user32 and gdi32, which ship
+with Windows.
+
+CONTRIBUTING.md says the same thing as a rule rather than as a fact, because it
+is the one that has to hold going forward.

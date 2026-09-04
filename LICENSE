@@ -19,19 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-The license above covers the source in this repository and nothing else.
-
-BlockyEngine is not affiliated with, endorsed by, or connected to Mojang
-Studios or Microsoft. "Minecraft" is a trademark of Mojang Studios.
-
-The engine ships no game assets and requires none: block textures are
-generated in code, characters are drawn in code, and the built-in font is its
-own. What it can do is *read* an installation you already have -- a client
-`.jar` or a resource pack -- and some of the images in `docs/gallery/` were
-rendered that way. Those images show textures belonging to their respective
-owners, are included to demonstrate the reader rather than to redistribute the
-artwork, and are marked as such in the gallery. Nothing under `engine/`,
-`game/` or `scenes/` contains any of it.
