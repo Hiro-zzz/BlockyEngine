@@ -31,6 +31,17 @@ struct DenoiseSettings {
     // How much of the filtered result to keep, 0..1. Below 1 leaves a little
     // grain, which often reads better than a perfectly flat image.
     float strength = 1.0f;
+
+    // Rows are handed out to workers, and the split is invisible in the
+    // result: every pass reads the previous one's output and writes a
+    // separate buffer, so no two rows ever look at each other's answer.
+    // `test_procgen` requires the threaded and single-threaded images to be
+    // identical rather than merely close.
+    //
+    // Worth having because the tracer above this has been threaded from the
+    // start, and once a frame is traced on the card the filter is what the
+    // wall clock is waiting for.
+    int threads = 0;  // 0 = one per hardware thread
 };
 
 // Returns a denoised copy of `targets.color`. If the auxiliary buffers are

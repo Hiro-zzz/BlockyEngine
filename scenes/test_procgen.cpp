@@ -320,6 +320,32 @@ void testDenoiser() {
               "a depth-only edge survives filtering");
     }
 
+    // The row split must not be visible in the answer, and the claim is
+    // exactness rather than closeness. A pass reads one buffer and writes
+    // another, so a worker boundary that moved a pixel would mean some row
+    // had read a value another row was still writing -- and a tolerance is
+    // precisely what would hide that, since the first symptom of it is a
+    // difference far below the noise the filter is there to remove.
+    {
+        DenoiseSettings alone;
+        alone.threads = 1;
+        DenoiseSettings split;
+        split.threads = 8;
+
+        Image oneThread = denoise(targets, alone);
+        Image manyThreads = denoise(targets, split);
+
+        float worst = 0.0f;
+        for (int y = 0; y < kHeight; ++y) {
+            for (int x = 0; x < kWidth; ++x) {
+                worst = std::max(worst, maxComponent(absv(oneThread.at(x, y) - manyThreads.at(x, y))));
+            }
+        }
+
+        std::printf("    one worker vs eight: worst pixel difference %g\n", double(worst));
+        check(worst == 0.0f, "splitting the rows across workers changes nothing");
+    }
+
     // Missing auxiliary buffers must be refused, not guessed at.
     RenderTargets empty;
     empty.color = targets.color;

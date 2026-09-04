@@ -1,6 +1,8 @@
 #include "engine/render/post/denoise.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <thread>
 #include <vector>
 
 namespace blocky {
@@ -33,6 +35,14 @@ Image denoise(const RenderTargets& targets, const DenoiseSettings& settings) {
         current[i] = targets.color.data()[i] / safeAlbedo(i);
     }
 
+    // How many workers the passes get. Settled once rather than inside the
+    // loop: `hardware_concurrency` is allowed to answer zero, and asking it
+    // once per pass would be five chances to mishandle that.
+    int threadCount =
+        settings.threads > 0 ? settings.threads : int(std::thread::hardware_concurrency());
+    if (threadCount <= 0) threadCount = 1;
+    threadCount = std::min(threadCount, std::max(1, height));
+
     // ---- a-trous passes, each one twice as wide as the last
     for (int iteration = 0; iteration < settings.iterations; ++iteration) {
         const int step = 1 << iteration;
@@ -41,90 +51,117 @@ Image denoise(const RenderTargets& targets, const DenoiseSettings& settings) {
         // the later passes from re-introducing blotches.
         const float colorSigma = settings.colorSigma * float(step);
 
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                const size_t centre = size_t(y) * size_t(width) + size_t(x);
+        // One band of rows, and the whole of what a worker does.
+        //
+        // Every read in here comes from `current` and every write lands in
+        // `next`, so two bands neither share a destination nor wait on each
+        // other's progress. That is why the split needs no locking and why
+        // the image cannot depend on how many workers there were -- which is
+        // not a hope, `test_procgen` requires the two to be identical.
+        auto filterRows = [&](int rowBegin, int rowEnd) {
+            for (int y = rowBegin; y < rowEnd; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    const size_t centre = size_t(y) * size_t(width) + size_t(x);
 
-                const float centreDepth = targets.depth[centre];
-                if (centreDepth < 0.0f) {
-                    // Background: nothing to filter against, leave it alone.
-                    next[centre] = current[centre];
-                    continue;
-                }
-
-                const Vec3 centreColor = current[centre];
-                const Vec3 centreNormal = targets.normal.data()[centre];
-                const Vec3 centreAlbedo = targets.albedo.data()[centre];
-
-                // Depth gradient, so a sloped surface is not mistaken for an
-                // edge. Without this the tolerance has to be widened for
-                // slopes, and a widened tolerance blurs real steps away.
-                // Clamped, because a central difference taken across an actual
-                // edge reports a nonsensical slope.
-                auto depthAt = [&](int px, int py) {
-                    px = std::min(std::max(px, 0), width - 1);
-                    py = std::min(std::max(py, 0), height - 1);
-                    float d = targets.depth[size_t(py) * size_t(width) + size_t(px)];
-                    return d < 0.0f ? centreDepth : d;
-                };
-                const float maxSlope = 3.0f;
-                float dzdx = std::min(maxSlope, std::max(-maxSlope,
-                                 0.5f * (depthAt(x + 1, y) - depthAt(x - 1, y))));
-                float dzdy = std::min(maxSlope, std::max(-maxSlope,
-                                 0.5f * (depthAt(x, y + 1) - depthAt(x, y - 1))));
-
-                Vec3 sum{0.0f};
-                float weightSum = 0.0f;
-
-                for (int ky = 0; ky < 5; ++ky) {
-                    int sy = y + (ky - 2) * step;
-                    if (sy < 0 || sy >= height) continue;
-
-                    for (int kx = 0; kx < 5; ++kx) {
-                        int sx = x + (kx - 2) * step;
-                        if (sx < 0 || sx >= width) continue;
-
-                        const size_t tap = size_t(sy) * size_t(width) + size_t(sx);
-                        const float tapDepth = targets.depth[tap];
-                        if (tapDepth < 0.0f) continue;
-
-                        // Normals: a dot product below one means the surface
-                        // turned, so the tap belongs to a different face.
-                        float normalCloseness = std::max(0.0f, dot(centreNormal, targets.normal.data()[tap]));
-                        float normalWeight = std::pow(normalCloseness, 1.0f / std::max(settings.normalSigma, 1e-3f));
-
-                        // Depth, compared against what the gradient predicts
-                        // rather than against the centre. Deliberately *not*
-                        // scaled by the filter width: an earlier version was,
-                        // and the wide iterations blurred straight across a
-                        // two-block terrace step.
-                        float expected = centreDepth + dzdx * float(sx - x) + dzdy * float(sy - y);
-                        float depthScale = settings.depthSigma * std::max(1.0f, centreDepth * 0.02f);
-                        float depthDelta = std::fabs(tapDepth - expected) / std::max(depthScale, 1e-3f);
-                        float depthWeight = std::exp(-depthDelta * depthDelta);
-
-                        // Albedo, which separates two differently textured
-                        // surfaces that happen to share a plane.
-                        Vec3 albedoDelta = targets.albedo.data()[tap] - centreAlbedo;
-                        float albedoWeight = std::exp(-lengthSq(albedoDelta) /
-                                                      (settings.albedoSigma * settings.albedoSigma));
-
-                        // And the lighting itself, so a genuine shadow edge
-                        // survives even when geometry and texture do not move.
-                        float colorDelta = std::fabs(luminance(current[tap]) - luminance(centreColor));
-                        float colorWeight = std::exp(-colorDelta / std::max(colorSigma, 1e-3f));
-
-                        float weight = kKernel[ky] * kKernel[kx] *
-                                       normalWeight * depthWeight * albedoWeight * colorWeight;
-
-                        sum += current[tap] * weight;
-                        weightSum += weight;
+                    const float centreDepth = targets.depth[centre];
+                    if (centreDepth < 0.0f) {
+                        // Background: nothing to filter against, leave it alone.
+                        next[centre] = current[centre];
+                        continue;
                     }
-                }
 
-                next[centre] = weightSum > 1e-6f ? sum / weightSum : centreColor;
+                    const Vec3 centreColor = current[centre];
+                    const Vec3 centreNormal = targets.normal.data()[centre];
+                    const Vec3 centreAlbedo = targets.albedo.data()[centre];
+
+                    // Depth gradient, so a sloped surface is not mistaken for an
+                    // edge. Without this the tolerance has to be widened for
+                    // slopes, and a widened tolerance blurs real steps away.
+                    // Clamped, because a central difference taken across an actual
+                    // edge reports a nonsensical slope.
+                    auto depthAt = [&](int px, int py) {
+                        px = std::min(std::max(px, 0), width - 1);
+                        py = std::min(std::max(py, 0), height - 1);
+                        float d = targets.depth[size_t(py) * size_t(width) + size_t(px)];
+                        return d < 0.0f ? centreDepth : d;
+                    };
+                    const float maxSlope = 3.0f;
+                    float dzdx = std::min(maxSlope, std::max(-maxSlope,
+                                     0.5f * (depthAt(x + 1, y) - depthAt(x - 1, y))));
+                    float dzdy = std::min(maxSlope, std::max(-maxSlope,
+                                     0.5f * (depthAt(x, y + 1) - depthAt(x, y - 1))));
+
+                    Vec3 sum{0.0f};
+                    float weightSum = 0.0f;
+
+                    for (int ky = 0; ky < 5; ++ky) {
+                        int sy = y + (ky - 2) * step;
+                        if (sy < 0 || sy >= height) continue;
+
+                        for (int kx = 0; kx < 5; ++kx) {
+                            int sx = x + (kx - 2) * step;
+                            if (sx < 0 || sx >= width) continue;
+
+                            const size_t tap = size_t(sy) * size_t(width) + size_t(sx);
+                            const float tapDepth = targets.depth[tap];
+                            if (tapDepth < 0.0f) continue;
+
+                            // Normals: a dot product below one means the surface
+                            // turned, so the tap belongs to a different face.
+                            float normalCloseness = std::max(0.0f, dot(centreNormal, targets.normal.data()[tap]));
+                            float normalWeight = std::pow(normalCloseness, 1.0f / std::max(settings.normalSigma, 1e-3f));
+
+                            // Depth, compared against what the gradient predicts
+                            // rather than against the centre. Deliberately *not*
+                            // scaled by the filter width: an earlier version was,
+                            // and the wide iterations blurred straight across a
+                            // two-block terrace step.
+                            float expected = centreDepth + dzdx * float(sx - x) + dzdy * float(sy - y);
+                            float depthScale = settings.depthSigma * std::max(1.0f, centreDepth * 0.02f);
+                            float depthDelta = std::fabs(tapDepth - expected) / std::max(depthScale, 1e-3f);
+                            float depthWeight = std::exp(-depthDelta * depthDelta);
+
+                            // Albedo, which separates two differently textured
+                            // surfaces that happen to share a plane.
+                            Vec3 albedoDelta = targets.albedo.data()[tap] - centreAlbedo;
+                            float albedoWeight = std::exp(-lengthSq(albedoDelta) /
+                                                          (settings.albedoSigma * settings.albedoSigma));
+
+                            // And the lighting itself, so a genuine shadow edge
+                            // survives even when geometry and texture do not move.
+                            float colorDelta = std::fabs(luminance(current[tap]) - luminance(centreColor));
+                            float colorWeight = std::exp(-colorDelta / std::max(colorSigma, 1e-3f));
+
+                            float weight = kKernel[ky] * kKernel[kx] *
+                                           normalWeight * depthWeight * albedoWeight * colorWeight;
+
+                            sum += current[tap] * weight;
+                            weightSum += weight;
+                        }
+                    }
+
+                    next[centre] = weightSum > 1e-6f ? sum / weightSum : centreColor;
+                }
             }
+        };
+
+        // Workers are made per pass rather than once for the filter, because a
+        // pass may not begin until the one before it has finished every row.
+        // The alternative is a barrier held across the whole run, and five
+        // joins cost less than one more thing that can fail to be signalled.
+        const int band = (height + threadCount - 1) / threadCount;
+        std::vector<std::thread> workers;
+        workers.reserve(size_t(threadCount) - 1);
+        for (int t = 1; t < threadCount; ++t) {
+            const int begin = std::min(height, t * band);
+            const int end = std::min(height, begin + band);
+            if (begin < end) workers.emplace_back(filterRows, begin, end);
         }
+        // The calling thread takes the first band rather than waiting on the
+        // others, the same arrangement `renderPath` uses.
+        filterRows(0, std::min(height, band));
+        for (std::thread& worker : workers) worker.join();
+
         current.swap(next);
     }
 
