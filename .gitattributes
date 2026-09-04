@@ -1,0 +1,18 @@
+# Line endings, decided once instead of per file.
+#
+# Git stores LF and checks out CRLF, which is what every editor pointed at this
+# project already writes. Without this the repository keeps whatever each file
+# happened to be saved as -- and it was genuinely mixed, some files CRLF, some
+# LF, some mixed within themselves -- so the moment an editor rewrote one on
+# save, a ten-line change arrived as a thousand-line diff with the real edit
+# buried in it. That happened, which is why this file exists.
+#
+# CRLF rather than native because everything here is Windows: MSVC, Win32, WGL
+# and a .cmd to build it. A deterministic answer is worth more than a portable
+# one for a project that only has one platform to be portable to.
+* text=auto eol=crlf
+
+# Never touched, whatever the extension heuristics think.
+*.png binary
+*.mp4 binary
+*.jar binary
