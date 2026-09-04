@@ -12,6 +12,7 @@
 #include "engine/render/trace/pathtrace.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -22,12 +23,10 @@ using namespace blocky;
 
 namespace {
 
-const char* kSkins[] = {
-    "C:/Users/yueiw/Downloads/da14781977559b10.png",
-    "C:/Users/yueiw/Downloads/7983af27cf866d82.png",
-    "C:/Users/yueiw/Downloads/dcbbff5cb0c44e79.png",
-    "C:/Users/yueiw/Downloads/59e4706ab7ec90e7.png",
-};
+// The four the film is cast from, by the names it calls them. Drawn rather
+// than read, so this runs on a fresh clone; a path per figure overrides one,
+// in this order, which is the reason to run this scene at all.
+const char* kLooks[] = {"crew", "stripe", "white", "clerk"};
 
 // Nearest-neighbour blow-up, on a checkerboard so transparency reads.
 ImageU8 upscale(const ImageU8& src, int factor) {
@@ -55,9 +54,11 @@ ImageU8 upscale(const ImageU8& src, int factor) {
 int main(int argc, char** argv) {
     bool back = false;
     bool wantFont = false;
+    std::vector<std::string> skinPaths;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "back") == 0) back = true;
         else if (std::strcmp(argv[i], "font") == 0) wantFont = true;
+        else skinPaths.push_back(argv[i]);
     }
 
     // What the game font actually covers, blown up so the cells are readable.
@@ -96,29 +97,27 @@ int main(int argc, char** argv) {
     }
 
     std::string error;
-    std::vector<Skin> skins(std::size(kSkins));
-    std::vector<EntityModel> models(std::size(kSkins));
+    std::vector<Skin> sheets(std::size(kLooks));
+    std::vector<EntityModel> models(std::size(kLooks));
 
-    for (size_t i = 0; i < std::size(kSkins); ++i) {
-        std::vector<uint8_t> bytes;
-        if (!readFileBytes(kSkins[i], bytes, &error)) {
-            std::printf("read %s failed: %s\n", kSkins[i], error.c_str());
+    for (size_t i = 0; i < std::size(kLooks); ++i) {
+        const std::string override = i < skinPaths.size() ? skinPaths[i] : std::string();
+
+        std::string note;
+        if (!skins::loadOrDraw(sheets[i], override, kLooks[i], &note)) {
+            std::printf("[cast] %s\n", note.c_str());
             return 1;
         }
-        if (!skins[i].loadFromPng(bytes.data(), bytes.size(), &error)) {
-            std::printf("decode %s failed: %s\n", kSkins[i], error.c_str());
-            return 1;
-        }
-        models[i] = buildPlayerModel(skins[i]);
+        models[i] = buildPlayerModel(sheets[i]);
 
         char path[128];
         std::snprintf(path, sizeof path, "out/cast_skin%zu.png", i);
-        pngSave(path, upscale(skins[i].image(), 8), &error);
+        pngSave(path, upscale(sheets[i].image(), 8), &error);
 
-        std::printf("%zu: %s  %dx%d  %s%s\n", i, kSkins[i],
-                    skins[i].image().width(), skins[i].image().height(),
-                    skins[i].model() == SkinModel::Slim ? "slim" : "classic",
-                    skins[i].wasLegacy() ? ", legacy 64x32" : "");
+        std::printf("%zu: %s  %dx%d  %s%s\n", i, note.c_str(),
+                    sheets[i].image().width(), sheets[i].image().height(),
+                    sheets[i].model() == SkinModel::Slim ? "slim" : "classic",
+                    sheets[i].wasLegacy() ? ", legacy 64x32" : "");
         std::printf("    wrote %s\n", path);
     }
 
@@ -128,10 +127,10 @@ int main(int argc, char** argv) {
     scene.world.fillBox({-12, 0, 5}, {12, 8, 5}, palette::Stone);
 
     EntitySet entities;
-    for (size_t i = 0; i < std::size(kSkins); ++i) {
+    for (size_t i = 0; i < std::size(kLooks); ++i) {
         Entity e;
         e.model = &models[i];
-        e.skin = &skins[i];
+        e.skin = &sheets[i];
         e.position = Vec3{-2.7f + 1.8f * float(i), 0.0f, 0.0f};
         e.yawDegrees = back ? 180.0f : 0.0f;
         e.pose = Pose::standing();

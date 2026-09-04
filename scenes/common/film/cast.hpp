@@ -25,6 +25,7 @@
 #include "engine/entity/entity.hpp"
 #include "engine/entity/face.hpp"
 #include "engine/entity/rigging.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -57,19 +58,19 @@ struct Figure {
     face::EyeRig eyes;
     std::string label;
 
-    bool load(const std::string& path, const std::string& name, bool wantEyes = true) {
+    // `name` is both what this figure is called in the shot list and the name
+    // of the look drawn for it when no file is given -- which is why the four
+    // in `skins.hpp` are called what the film calls them. A path still wins,
+    // so pointing the film at real skins is one argument away.
+    bool load(const std::string& name, const std::string& path = "", bool wantEyes = true) {
         label = name;
 
-        std::vector<uint8_t> bytes;
-        std::string error;
-        if (!readFileBytes(path, bytes, &error)) {
-            std::printf("[cast] %s: %s\n", name.c_str(), error.c_str());
+        std::string note;
+        if (!skins::loadOrDraw(skin, path, name, &note)) {
+            std::printf("[cast] %s: %s\n", name.c_str(), note.c_str());
             return false;
         }
-        if (!skin.loadFromPng(bytes.data(), bytes.size(), &error)) {
-            std::printf("[cast] %s: %s\n", name.c_str(), error.c_str());
-            return false;
-        }
+        std::printf("[cast] %-8s %s\n", name.c_str(), note.c_str());
 
         model = buildPlayerModel(skin);
         rig.rightElbow = rigging::addHinge(model, joint::RightArm, "rightElbow");

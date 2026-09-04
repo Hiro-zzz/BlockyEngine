@@ -33,6 +33,7 @@
 #include "engine/render/trace/pathtrace.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -43,18 +44,12 @@ using namespace blocky;
 
 namespace {
 
-const char* kDefaultSkin = "C:/Users/yueiw/Downloads/1407faed3b1db843.png";
+const char* kDefaultLook = "slate";
 
 // Dusty mauve: a shade lighter than the character's own darks, so a figure
 // dressed in near-black still has an edge against it. A backdrop darker than
 // the subject turns the subject into a hole.
 const Vec3 kDefaultBackdrop{0.341f, 0.251f, 0.302f};
-
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 bool parseColour(const std::string& text, Vec3& out) {
     if (text.size() != 6) return false;
@@ -125,15 +120,16 @@ int main(int argc, char** argv) {
             skinPath = arg;
         }
     }
-    if (skinPath.empty()) skinPath = kDefaultSkin;
 
-    std::string error;
     Skin skin;
-    if (!loadSkinFile(skinPath, skin, &error)) {
-        std::printf("could not load %s: %s\n", skinPath.c_str(), error.c_str());
+    std::string error;
+    std::string note;
+    if (!skins::loadOrDraw(skin, skinPath, kDefaultLook, &note)) {
+        std::printf("[charm] %s\n", note.c_str());
         return 1;
     }
-    std::printf("[charm] skin %s\n", skin.model() == SkinModel::Slim ? "slim" : "classic");
+    std::printf("[charm] %s (%s)\n", note.c_str(),
+                skin.model() == SkinModel::Slim ? "slim" : "classic");
 
     EntityModel model = buildPlayerModel(skin);
 

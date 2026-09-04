@@ -56,6 +56,7 @@
 #include "engine/render/post/stylize.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -67,18 +68,12 @@ using namespace blocky;
 
 namespace {
 
-const char* kDefaultSkin = "C:/Users/yueiw/Downloads/1407faed3b1db843.png";
+const char* kDefaultLook = "slate";
 
 // Where the camera stands. One definition, used by both the animation and the
 // stills, so the two cannot drift apart.
 const Vec3 kEye{0.25f, 1.30f, -4.60f};
 const Vec3 kAt {0.00f, 1.02f,  0.00f};
-
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 // Joint indices the pose needs beyond the fixed humanoid seven.
 struct Arms {
@@ -158,15 +153,15 @@ int main(int argc, char** argv) {
         else if (arg.rfind("out=", 0) == 0) name = arg.substr(4);
         else skinPath = arg;
     }
-    if (skinPath.empty()) skinPath = kDefaultSkin;
 
-    std::string error;
     Skin skin;
-    if (!loadSkinFile(skinPath, skin, &error)) {
-        std::printf("could not load %s: %s\n", skinPath.c_str(), error.c_str());
+    std::string error;
+    std::string note;
+    if (!skins::loadOrDraw(skin, skinPath, kDefaultLook, &note)) {
+        std::printf("[sway] %s\n", note.c_str());
         return 1;
     }
-    std::printf("[sway] skin %s (%s)\n", skinPath.c_str(),
+    std::printf("[sway] %s (%s)\n", note.c_str(),
                 skin.model() == SkinModel::Slim ? "slim" : "classic");
 
     EntityModel model = buildPlayerModel(skin);

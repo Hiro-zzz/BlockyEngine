@@ -37,6 +37,7 @@
 #include "engine/world/noise.hpp"
 #include "engine/world/shapes.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -47,7 +48,7 @@ using namespace blocky;
 
 namespace {
 
-const char* kDefaultSkin = "C:/Users/yueiw/Downloads/d22e8cd1208f2767.png";
+const char* kDefaultLook = "rust";
 constexpr uint32_t kSeed = 190204u;
 
 // Floor top. A block at y = 0 occupies [0, 1), so feet sit at 1.
@@ -61,12 +62,6 @@ constexpr float kFigureYaw = -14.0f;
 // In the end wall of the chamber (air is hollowed to z = -5, so z = -6 is
 // the face they are mining). Chest-to-head height, a little off centre.
 const IVec3 kDiamond{0, 2, -6};
-
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 // ------------------------------------------------------------------ mine
 //
@@ -230,7 +225,6 @@ int main(int argc, char** argv) {
         else if (arg.rfind("out=", 0) == 0) outputName = arg.substr(4);
         else skinPath = arg;
     }
-    if (skinPath.empty()) skinPath = kDefaultSkin;
 
     // ---------------------------------------------------------- palette
     // A copy of the scenes' palette, plus this scene's own blocks on the
@@ -294,11 +288,12 @@ int main(int argc, char** argv) {
     // ------------------------------------------------------------- skin
     Skin skin;
     std::string error;
-    if (!loadSkinFile(skinPath, skin, &error)) {
-        std::printf("could not load %s: %s\n", skinPath.c_str(), error.c_str());
+    std::string note;
+    if (!skins::loadOrDraw(skin, skinPath, kDefaultLook, &note)) {
+        std::printf("[strike] %s\n", note.c_str());
         return 1;
     }
-    std::printf("[strike] skin %s (%s)\n", skinPath.c_str(),
+    std::printf("[strike] %s (%s)\n", note.c_str(),
                 skin.model() == SkinModel::Slim ? "slim" : "classic");
 
     EntityModel model = buildPlayerModel(skin);

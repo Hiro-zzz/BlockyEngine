@@ -28,6 +28,7 @@
 #include "engine/render/trace/pathtrace.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -39,17 +40,11 @@ using namespace blocky;
 
 namespace {
 
-const char* kDefaultSkin = "C:/Users/yueiw/Downloads/3dea0b516cd7e48d.png";
+const char* kDefaultLook = "moss";
 
 // Warm cream. The backdrop and nothing else -- with no world in the scene,
 // every ray that misses returns exactly this.
 const Vec3 kDefaultBackdrop{0.976f, 0.851f, 0.612f};
-
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 // `bg=RRGGBB`, in sRGB as it would be picked out of a reference image.
 bool parseColour(const std::string& text, Vec3& out) {
@@ -116,15 +111,16 @@ int main(int argc, char** argv) {
             skinPath = arg;
         }
     }
-    if (skinPath.empty()) skinPath = kDefaultSkin;
 
-    std::string error;
     Skin skin;
-    if (!loadSkinFile(skinPath, skin, &error)) {
-        std::printf("could not load %s: %s\n", skinPath.c_str(), error.c_str());
+    std::string error;
+    std::string note;
+    if (!skins::loadOrDraw(skin, skinPath, kDefaultLook, &note)) {
+        std::printf("[portrait] %s\n", note.c_str());
         return 1;
     }
-    std::printf("[portrait] skin %s\n", skin.model() == SkinModel::Slim ? "slim" : "classic");
+    std::printf("[portrait] %s (%s)\n", note.c_str(),
+                skin.model() == SkinModel::Slim ? "slim" : "classic");
 
     EntityModel model = buildPlayerModel(skin);
 

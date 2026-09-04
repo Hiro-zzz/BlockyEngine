@@ -20,6 +20,7 @@
 #include "engine/render/trace/pathtrace.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -30,14 +31,8 @@ using namespace blocky;
 
 namespace {
 
-const char* kDefaultSkin = "C:/Users/yueiw/Downloads/d22e8cd1208f2767.png";
+const char* kDefaultLook = "rust";
 const Vec3 kBackdrop{0.245f, 0.230f, 0.275f};
-
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 } // namespace
 
@@ -48,14 +43,15 @@ int main(int argc, char** argv) {
         if (std::strcmp(argv[i], "draft") == 0) draft = true;
         else skinPath = argv[i];
     }
-    if (skinPath.empty()) skinPath = kDefaultSkin;
 
-    std::string error;
     Skin source;
-    if (!loadSkinFile(skinPath, source, &error)) {
-        std::printf("could not load %s: %s\n", skinPath.c_str(), error.c_str());
+    std::string error;
+    std::string note;
+    if (!skins::loadOrDraw(source, skinPath, kDefaultLook, &note)) {
+        std::printf("[eyes] %s\n", note.c_str());
         return 1;
     }
+    std::printf("[eyes] %s\n", note.c_str());
 
     // What the scanner made of the face, before anything is changed.
     face::EyeScan preview = face::scanFace(source);

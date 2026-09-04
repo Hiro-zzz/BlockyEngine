@@ -62,13 +62,15 @@ struct Cast {
     Figure stripe;  // the one already sitting there
     Figure white;   // the one at the end of the road
 
+    // Drawn rather than read, so the film renders on a fresh clone with no
+    // asset anywhere -- the same line the block textures hold. Each figure
+    // takes a real skin instead if one is handed to it; see `Figure::load`.
     bool load() {
-        const std::string dir = "C:/Users/yueiw/Downloads/";
         bool ok = true;
-        ok &= crew.load(dir + "da14781977559b10.png", "crew");
-        ok &= clerk.load(dir + "59e4706ab7ec90e7.png", "clerk");
-        ok &= stripe.load(dir + "7983af27cf866d82.png", "stripe");
-        ok &= white.load(dir + "dcbbff5cb0c44e79.png", "white");
+        ok &= crew.load("crew");
+        ok &= clerk.load("clerk");
+        ok &= stripe.load("stripe");
+        ok &= white.load("white");
         return ok;
     }
 };

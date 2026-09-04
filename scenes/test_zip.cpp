@@ -1,5 +1,6 @@
 // Exercises the ZIP reader and the PNG decoder together, against a real
 // Minecraft client jar: 22k entries, deflate-compressed, CRC-checked.
+#include "engine/assets/asset_source.hpp"
 #include "engine/core/file.hpp"
 #include "engine/core/png.hpp"
 #include "engine/core/zip.hpp"
@@ -20,11 +21,12 @@ void check(bool condition, const char* what) {
     }
 }
 
-std::string defaultJarPath() {
-    const char* appData = std::getenv("APPDATA");
-    if (!appData) return {};
-    return std::string(appData) + "/.tlauncher/legacy/Minecraft/game/versions/1.20.4/1.20.4.jar";
-}
+// Whatever the engine itself would open, rather than one launcher's layout
+// and one version number. This used to name a single jar under a single
+// launcher, which meant the test quietly skipped itself for anybody whose
+// install was anywhere else -- and the engine has known how to answer this
+// question since `findClientJar` existed.
+std::string defaultJarPath() { return AssetSource::findClientJar(); }
 
 } // namespace
 

@@ -22,6 +22,7 @@
 #include "engine/render/trace/pathtrace.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -32,21 +33,12 @@ using namespace blocky;
 
 namespace {
 
-const char* kSkinA = "C:/Users/yueiw/Downloads/d22e8cd1208f2767.png";
-const char* kSkinB = "C:/Users/yueiw/Downloads/3dea0b516cd7e48d.png";
+const char* kLookA = "rust";
+const char* kLookB = "moss";
 
 // The backdrop colour, in sRGB as it would be picked out of the reference.
 // Both the miss colour and the floor material come from this one value.
 const Vec3 kBackdrop{0.255f, 0.235f, 0.290f};
-
-// Skins here come from loose files rather than from a resource pack, so this
-// goes through readFileBytes -- the project path has a Cyrillic character in
-// it and the narrow CRT would mangle it.
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 // One arm gains an elbow, one leg a knee, on both sides. Returned in the
 // order the poses below name them.
@@ -75,22 +67,27 @@ int main(int argc, char** argv) {
         else if (std::strcmp(argv[i], "inspect") == 0) inspect = draft = true;
         else skinPaths.push_back(argv[i]);
     }
-    std::string pathA = skinPaths.size() > 0 ? skinPaths[0] : kSkinA;
-    std::string pathB = skinPaths.size() > 1 ? skinPaths[1] : kSkinB;
+    // Empty means "draw one", so passing no skins is a working run rather
+    // than two paths this machine happens not to have.
+    std::string pathA = skinPaths.size() > 0 ? skinPaths[0] : std::string();
+    std::string pathB = skinPaths.size() > 1 ? skinPaths[1] : std::string();
 
     std::string error;
+    std::string noteA, noteB;
     Skin skinA, skinB;
-    if (!loadSkinFile(pathA, skinA, &error)) {
-        std::printf("could not load %s: %s\n", pathA.c_str(), error.c_str());
+    if (!skins::loadOrDraw(skinA, pathA, kLookA, &noteA)) {
+        std::printf("[duo] %s\n", noteA.c_str());
         return 1;
     }
-    if (!loadSkinFile(pathB, skinB, &error)) {
-        std::printf("could not load %s: %s\n", pathB.c_str(), error.c_str());
+    if (!skins::loadOrDraw(skinB, pathB, kLookB, &noteB)) {
+        std::printf("[duo] %s\n", noteB.c_str());
         return 1;
     }
-    std::printf("[duo] skin A: %s%s\n", skinA.model() == SkinModel::Slim ? "slim" : "classic",
+    std::printf("[duo] A: %s, %s%s\n", noteA.c_str(),
+                skinA.model() == SkinModel::Slim ? "slim" : "classic",
                 skinA.wasLegacy() ? ", expanded from 64x32" : "");
-    std::printf("[duo] skin B: %s%s\n", skinB.model() == SkinModel::Slim ? "slim" : "classic",
+    std::printf("[duo] B: %s, %s%s\n", noteB.c_str(),
+                skinB.model() == SkinModel::Slim ? "slim" : "classic",
                 skinB.wasLegacy() ? ", expanded from 64x32" : "");
 
     // ------------------------------------------------------------ the studio

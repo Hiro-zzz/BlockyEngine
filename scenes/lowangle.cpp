@@ -35,6 +35,7 @@
 #include "engine/render/trace/pathtrace.hpp"
 #include "engine/scene/scene.hpp"
 #include "scenes/common/palette.hpp"
+#include "scenes/common/skins.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -45,24 +46,22 @@ using namespace blocky;
 
 namespace {
 
-const char* kDefaultSkin = "C:/Users/yueiw/Downloads/5491d069c52d088f.png";
+const char* kDefaultLook = "ochre";
 
-// Where the entity's right eye sits on the default skin. The scan finds a
-// two-by-two one texel down and to the left of it -- the lash column rather
-// than the eye -- and rebuilds a pair of black squares in place of two drawn
-// eyes. Exactly the case face.hpp keeps rightEyeOverride for: the scanner is
-// honest about what it saw, and a scene that can look at the render knows
-// better. Only applied to the skin it was read off.
-const SkinRect kDefaultEye{9, 12, 2, 2};
+// There used to be a `kDefaultEye` here, and what it was for is worth keeping
+// even though the rectangle has gone.
+//
+// On the skin this scene used to point at, the scan found a two-by-two one
+// texel down and to the left of the real eye -- the lash column rather than
+// the eye -- and rebuilt a pair of black squares over two drawn ones. Exactly
+// the case face.hpp keeps `rightEyeOverride` for: the scanner is honest about
+// what it saw, and somebody who can look at the render knows better.
+//
+// It was tied to that one file and said so, so it went with it. `eye=x,y,w,h`
+// is how to say the same thing about whatever skin is actually being rendered.
 
 // Dark plum. Everything the figure is not.
 const Vec3 kDefaultBackdrop{0.196f, 0.129f, 0.180f};
-
-bool loadSkinFile(const std::string& path, Skin& skin, std::string* error) {
-    std::vector<uint8_t> bytes;
-    if (!readFileBytes(path, bytes, error)) return false;
-    return skin.loadFromPng(bytes.data(), bytes.size(), error);
-}
 
 bool parseColour(const std::string& text, Vec3& out) {
     if (text.size() != 6) return false;
@@ -136,17 +135,16 @@ int main(int argc, char** argv) {
             skinPath = arg;
         }
     }
-    const bool defaultSkin = skinPath.empty();
-    if (defaultSkin) skinPath = kDefaultSkin;
-    if (defaultSkin && !eyeOverride.valid()) eyeOverride = kDefaultEye;
 
-    std::string error;
     Skin skin;
-    if (!loadSkinFile(skinPath, skin, &error)) {
-        std::printf("could not load %s: %s\n", skinPath.c_str(), error.c_str());
+    std::string error;
+    std::string note;
+    if (!skins::loadOrDraw(skin, skinPath, kDefaultLook, &note)) {
+        std::printf("[lowangle] %s\n", note.c_str());
         return 1;
     }
-    std::printf("[lowangle] skin %s\n", skin.model() == SkinModel::Slim ? "slim" : "classic");
+    std::printf("[lowangle] %s (%s)\n", note.c_str(),
+                skin.model() == SkinModel::Slim ? "slim" : "classic");
 
     EntityModel model = buildPlayerModel(skin);
 
