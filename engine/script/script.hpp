@@ -78,6 +78,15 @@ public:
 
     size_t heapObjects() const { return heap_.objectCount(); }
 
+    // Scopes ever handed out -- the high-water mark, since a scope nothing
+    // captured goes back on a free list rather than being freed.
+    //
+    // Next to `heapObjects` because on its own that one answers half the
+    // question and reads like the whole of it: objects are what a script asks
+    // for, scopes are what running it costs regardless, and a handler can sit
+    // still on the first while growing without bound on the second. It did.
+    size_t heapScopes() const { return heap_.scopeCount(); }
+
 private:
     bool build(const std::string& source, const std::string& name);
     void setError(const std::string& message, int line, const std::string& name);

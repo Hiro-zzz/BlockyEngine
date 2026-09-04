@@ -605,6 +605,89 @@ void testInternedLiterals() {
     }
 }
 
+// ------------------------------------------------------------ scope reuse
+// The other half of the heap story, and the half that used to be missing.
+//
+// `testInternedLiterals` asserts that a handler allocates no new *objects*,
+// and that was always true and never the whole answer: scopes are allocated
+// whether the script asks or not -- one per call, per block, per branch, per
+// loop turn -- so a handler doing arithmetic and nothing else grew the arena
+// by tens of megabytes an hour while the object count sat still.
+//
+// So this asserts the number that actually grew, and then asserts the thing
+// that makes reusing a scope legal at all: a closure still owns the one it
+// captured.
+void testScopesAreRecycled() {
+    std::printf("scopes go back to the heap\n");
+
+    {   // Every shape that takes a scope: a call, a block, a branch, a loop.
+        Script script;
+        setUp(script);
+        check(script.loadSource("let n = 0\n"
+                                "on tick(dt) {\n"
+                                "  if dt > 0 {\n"
+                                "    for i in range(4) { n = n + i * dt }\n"
+                                "  }\n"
+                                "}\n",
+                                "t"),
+              "the handler loads");
+
+        // A hundred first, so anything the first tick has to allocate once is
+        // already allocated when the count is taken.
+        for (int i = 0; i < 100; ++i) check(script.call("tick", {Value::num(0.016)}), "it runs");
+        size_t before = script.heapScopes();
+        for (int i = 0; i < 900; ++i) check(script.call("tick", {Value::num(0.016)}), "it runs");
+
+        std::printf("  %zu scopes after 100 ticks, %zu after 1000\n", before, script.heapScopes());
+        check(script.heapScopes() == before, "900 more ticks need no scope that 100 did not");
+    }
+
+    {   // A closure keeps the scope it captured, through a thousand calls
+        // that each take a scope and give it back. If a recycled scope were
+        // ever handed out while this closure still pointed at it, the count
+        // would come back wrong rather than crash -- which is the reason to
+        // assert on the count.
+        Script script;
+        setUp(script);
+        check(script.loadSource("fn counter() {\n"
+                                "  let n = 0\n"
+                                "  return fn() { n = n + 1  return n }\n"
+                                "}\n"
+                                "let c = counter()\n"
+                                "on tick(dt) {\n"
+                                "  if dt > 0 { for i in range(3) { let junk = i * 2 } }\n"
+                                "  result(c())\n"
+                                "}\n",
+                                "t"),
+              "the counter loads");
+
+        for (int i = 0; i < 1000; ++i) check(script.call("tick", {Value::num(0.016)}), "it runs");
+        check(gResult.type == Type::Number && gResult.number == 1000.0,
+              "a captured variable survives a thousand scopes being reused");
+    }
+
+    {   // The sharp case: a closure made *inside a loop turn* captures that
+        // turn's scope, so those scopes are exactly the ones that must not be
+        // recycled. Three closures, three different values -- one shared or
+        // reused scope and they would all answer the same.
+        Script script;
+        setUp(script);
+        check(script.loadSource("let fns = []\n"
+                                "for i in range(3) { push(fns, fn() { return i * 10 }) }\n"
+                                "result([fns[0](), fns[1](), fns[2]()])\n",
+                                "t"),
+              "the closures load");
+
+        check(gResult.type == Type::List && gResult.object && gResult.object->items.size() == 3,
+              "three closures answered");
+        if (gResult.type == Type::List && gResult.object && gResult.object->items.size() == 3) {
+            const std::vector<Value>& got = gResult.object->items;
+            check(got[0].number == 0.0 && got[1].number == 10.0 && got[2].number == 20.0,
+                  "each closure kept its own turn of the loop");
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -620,6 +703,7 @@ int main() {
     testSandboxBindings();
     testEntityBindings();
     testInternedLiterals();
+    testScopesAreRecycled();
     testHeapIsFreedOnReload();
 
     if (gFailures == 0) {

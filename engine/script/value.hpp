@@ -36,6 +36,17 @@
 // for hours. One that builds a list every frame will grow until the script is
 // reloaded, which frees the arena -- and reloading is the thing this whole
 // layer exists to make cheap.
+//
+// That sentence used to be half true, and the half it left out was the
+// expensive one. **Scopes** are on the heap as well, and unlike objects a
+// script does not choose to allocate them: one per call, one per block, one
+// per branch, one per loop iteration, whatever it is doing. So `on tick` grew
+// the arena whether or not it built anything -- 56 MB over ten minutes at
+// 60 Hz for a handler that did nothing but add numbers. `Heap::recycleEnv`
+// and the `ScopeGuard` in interp.cpp are the fix: a scope that no closure
+// captured goes back on a free list when its block ends, which is nearly all
+// of them. Closures still keep theirs, and that really is the documented cost
+// of having no collector.
 #include "engine/core/math.hpp"
 
 #include <cstdint>
@@ -141,31 +152,75 @@ struct Env {
 };
 
 // Owns every object and scope a script allocates, and frees them together.
+//
+// Scopes are the exception to "frees them together", and they have to be.
+// Objects are made when a script asks for one -- a list, a string -- so a
+// handler that asks for none costs nothing. Scopes are made whether the script
+// asks or not: one per call, one per block, one per branch, one per loop
+// iteration. Kept to the end like objects, they turn `on tick` into a leak
+// whatever it contains, which is what they were before `recycleEnv` existed.
 class Heap {
 public:
     Obj* newObj(Type kind) {
         objects_.push_back(std::make_unique<Obj>());
         objects_.back()->kind = kind;
+        // Counted here rather than at the three places in the evaluator that
+        // build one, so a fourth cannot be added without being counted. See
+        // `closuresMade`.
+        if (kind == Type::Function) ++closures_;
         return objects_.back().get();
     }
 
     Env* newEnv(Env* parent) {
+        if (!freeEnvs_.empty()) {
+            Env* env = freeEnvs_.back();
+            freeEnvs_.pop_back();
+            env->parent = parent;
+            // Cleared, not freed: the storage a scope's variables needed last
+            // time is what the next one is about to need.
+            env->vars.clear();
+            return env;
+        }
         envs_.push_back(std::make_unique<Env>());
         envs_.back()->parent = parent;
         return envs_.back().get();
     }
 
+    // Hands a scope back for reuse. Only ever called by the evaluator, and
+    // only after it has established that nothing can be pointing at it -- see
+    // the note on `ScopeGuard` in interp.cpp, which is where the argument for
+    // that lives.
+    void recycleEnv(Env* env) {
+        env->parent = nullptr;
+        env->vars.clear();
+        freeEnvs_.push_back(env);
+    }
+
+    // How many closures have ever been made. The evaluator compares this
+    // across a block: a scope escapes its block only by becoming a closure's
+    // environment, so a block that made none cannot have leaked its scope.
+    uint64_t closuresMade() const { return closures_; }
+
     void reset() {
         objects_.clear();
         envs_.clear();
+        freeEnvs_.clear();
+        closures_ = 0;
     }
 
     size_t objectCount() const { return objects_.size(); }
+
+    // Scopes ever allocated -- the high-water mark, since recycled ones are
+    // handed out again rather than freed. This is the number that must stop
+    // growing while a handler runs, and `test_script` says so.
     size_t scopeCount() const { return envs_.size(); }
+    size_t liveScopeCount() const { return envs_.size() - freeEnvs_.size(); }
 
 private:
     std::vector<std::unique_ptr<Obj>> objects_;
     std::vector<std::unique_ptr<Env>> envs_;
+    std::vector<Env*> freeEnvs_;
+    uint64_t closures_ = 0;
 };
 
 // A runtime failure. Carries the line so the host can name it; a script error

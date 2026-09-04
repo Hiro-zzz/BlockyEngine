@@ -8,6 +8,54 @@ namespace {
 
 constexpr int kMaxDepth = 200;
 
+// A scope that goes back to the heap when the block it belongs to ends.
+//
+// There is no collector here, so this cannot ask the general question -- is
+// anything still pointing at this scope -- and does not try. It asks the much
+// narrower one the language can actually answer.
+//
+// A scope outlives its block only by becoming a closure's environment: either
+// directly, or as an ancestor of one, since a closure holds its scope and each
+// scope holds its parent. Every closure is a `Function` object, and every
+// object is made by `Heap::newObj`. So if the heap made no function while the
+// block ran, nothing anywhere can hold this scope or any scope created under
+// it, and it is free.
+//
+// The watermark being taken per scope is what makes nesting come out right: a
+// closure made three blocks deep bumps the counter inside all three, so all
+// three keep their scopes -- which is exactly the set the closure's parent
+// chain runs through.
+//
+// Wrong only in the safe direction. A block that did make a closure keeps its
+// scope for ever, even if that closure is dropped a line later; that is the
+// documented price of having no collector, and it is paid by the blocks that
+// make closures rather than by every block there is.
+//
+// Which is what this is for. Before it, `on tick` leaked a scope per call, per
+// block, per branch and per loop iteration -- a handler doing nothing but `if`
+// around `for i in range(4)` grew the heap 56 MB over ten minutes at 60 Hz.
+// The test that should have caught it counted objects, and objects were never
+// the half that grew.
+class ScopeGuard {
+public:
+    ScopeGuard(Heap& heap, Env* parent)
+        : heap_(heap), closuresBefore_(heap.closuresMade()), env_(heap.newEnv(parent)) {}
+
+    ~ScopeGuard() {
+        if (heap_.closuresMade() == closuresBefore_) heap_.recycleEnv(env_);
+    }
+
+    ScopeGuard(const ScopeGuard&) = delete;
+    ScopeGuard& operator=(const ScopeGuard&) = delete;
+
+    Env& env() const { return *env_; }
+
+private:
+    Heap& heap_;
+    uint64_t closuresBefore_;
+    Env* env_;
+};
+
 }  // namespace
 
 Interpreter::Interpreter(Heap& heap) : heap_(heap) {
@@ -170,11 +218,11 @@ Value Interpreter::callValue(const Value& callee, const std::vector<Value>& args
 
     // Parented on where the function was *written*, not on where it was
     // called: that is what makes a closure keep the variables it captured.
-    Env* frame = heap_.newEnv(callee.object->closure ? callee.object->closure : globals_);
-    for (size_t i = 0; i < decl.params.size(); ++i) frame->declare(decl.params[i], args[i]);
+    ScopeGuard frame(heap_, callee.object->closure ? callee.object->closure : globals_);
+    for (size_t i = 0; i < decl.params.size(); ++i) frame.env().declare(decl.params[i], args[i]);
 
     Value result;
-    if (decl.body) execBlock(decl.body->body, *frame, result);
+    if (decl.body) execBlock(decl.body->body, frame.env(), result);
     --depth_;
     return result;
 }
@@ -206,18 +254,18 @@ Interpreter::Flow Interpreter::exec(const Stmt& stmt, Env& env, Value& result) {
         }
 
         case StmtKind::Block: {
-            Env* inner = heap_.newEnv(&env);
-            return execBlock(stmt.body, *inner, result);
+            ScopeGuard inner(heap_, &env);
+            return execBlock(stmt.body, inner.env(), result);
         }
 
         case StmtKind::If: {
             if (eval(*stmt.expr, env).truthy()) {
-                Env* inner = heap_.newEnv(&env);
-                return execBlock(stmt.body, *inner, result);
+                ScopeGuard inner(heap_, &env);
+                return execBlock(stmt.body, inner.env(), result);
             }
             if (!stmt.other.empty()) {
-                Env* inner = heap_.newEnv(&env);
-                return execBlock(stmt.other, *inner, result);
+                ScopeGuard inner(heap_, &env);
+                return execBlock(stmt.other, inner.env(), result);
             }
             return Flow::Normal;
         }
@@ -225,8 +273,12 @@ Interpreter::Flow Interpreter::exec(const Stmt& stmt, Env& env, Value& result) {
         case StmtKind::While: {
             while (eval(*stmt.expr, env).truthy()) {
                 step();
-                Env* inner = heap_.newEnv(&env);
-                Flow flow = execBlock(stmt.body, *inner, result);
+                // Inside the loop, so each turn gets its own scope and hands
+                // it straight back -- the alternative, one scope cleared per
+                // turn, would be wrong for a body that closes over the
+                // variables it declared this time round.
+                ScopeGuard inner(heap_, &env);
+                Flow flow = execBlock(stmt.body, inner.env(), result);
                 if (flow == Flow::Break) break;
                 if (flow == Flow::Return) return flow;
             }
@@ -249,9 +301,9 @@ Interpreter::Flow Interpreter::exec(const Stmt& stmt, Env& env, Value& result) {
 
             for (const Value& item : sequence) {
                 step();
-                Env* inner = heap_.newEnv(&env);
-                inner->declare(stmt.name, item);
-                Flow flow = execBlock(stmt.body, *inner, result);
+                ScopeGuard inner(heap_, &env);
+                inner.env().declare(stmt.name, item);
+                Flow flow = execBlock(stmt.body, inner.env(), result);
                 if (flow == Flow::Break) break;
                 if (flow == Flow::Return) return flow;
             }
