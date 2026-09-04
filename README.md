@@ -1,24 +1,30 @@
 # BlockyEngine
 
-Воксельный движок на C++ в стилистике Minecraft. С ним делают две вещи, и обе
-пишутся обычным C++: **считают кадр** и **запускают мир**.
+[по-русски](README.ru.md) · [Gallery](docs/gallery.md) · [Documentation](#documentation)
 
-Кадр — это файл в `scenes/`: описываешь мир кодом, пересобираешь, получаешь
-картинку или дубль. Мир, который идёт, — это `game/`: тот же воксельный мир, но
-по нему ходят, в нём падают и связываются друг с другом твёрдые тела, а правила
-ему пишет скрипт, перезагружаемый не закрывая окна.
+![diorama](docs/gallery/diorama.png)
 
-Начиналось всё с рендерера, и он остался тем, ради чего остальное достаточно
-точно: физика двигает те же пропы, которые трассировщик потом считает,
-контроллер персонажа ходит по той же решётке, по которой идёт луч, а вьюпорт
-рисует ту же `Scene`, которую получит на вход path tracer.
+A voxel engine in C++, in the visual language of Minecraft. Two things get made
+with it, and both are written in ordinary C++: it **computes a frame** and it
+**runs a world**.
 
-Ни одной внешней библиотеки. PNG-кодек, ZIP-ридер, загрузчик OpenGL, окно на
-Win32, трассировщик пути — сначала на процессоре, потом он же на
-компьют-шейдерах — растеризатор, шумоподавитель, солвер твёрдых тел, свой
-скриптовый язык и, раз уж пошло, H.264. Всё своё. После отказа от glm
-останавливаться на чужом видеокодеке было бы странным местом проявить
-умеренность.
+A frame is a file in `scenes/`: describe a world in code, rebuild, get a
+picture or a take. The world that runs is `game/`: the same voxel world, but
+one you walk through, in which rigid bodies fall and are fastened to each
+other, and whose rules are written by a script that reloads without closing the
+window.
+
+It began as a renderer, and the renderer stayed the reason the rest is accurate
+enough: physics moves the same props the tracer later shades, the character
+controller walks the same lattice a ray walks, and the viewport draws the same
+`Scene` the path tracer will be handed.
+
+Not one external library. The PNG codec, the ZIP reader, the OpenGL loader, a
+window on Win32, a path tracer — first on the processor, then the same one on
+compute shaders — a rasteriser, a denoiser, a rigid-body solver, its own
+scripting language and, since it had come to that, H.264. All of it its own.
+After turning down glm, stopping at somebody else's video codec would have been
+a strange place to show restraint.
 
 ```cpp
 // scenes/demo.cpp
@@ -30,12 +36,12 @@ Win32, трассировщик пути — сначала на процесс�
 using namespace blocky;
 
 int main() {
-    Scene scene(palette::registry());        // движок блоков не знает: палитру даёшь ты
+    Scene scene(palette::registry());        // the engine knows no blocks: you bring the palette
     scene.world.fillBox({-8, -1, -8}, {8, -1, 8}, palette::Stone);
     scene.world.fillSphere({0, 3, 0}, 3.0f, palette::GoldBlock);
     scene.world.set({0, 8, 0}, palette::Glowstone);
 
-    scene.frameAll();                       // изометрия по габаритам мира
+    scene.frameAll();                       // isometric, framed on the world's extent
 
     PathSettings settings;
     settings.width = 800;
@@ -52,561 +58,595 @@ int main() {
 build.cmd release run demo
 ```
 
-Файл в `scenes/` автоматически становится отдельным исполняемым файлом
-`scene_demo.exe` — CMake находит его сам, ничего регистрировать не нужно.
+---
 
-Второй вход — [игра](#игра): всё, что лежит в `game/`, собирается наоборот, в
-один `konstruct.exe`. Ровно эту разницу каталог и существует, чтобы отметить:
-кадр рисует одну вещь и выходит, а у игры части обязаны знать друг о друге.
+## Gallery
+
+| | | |
+|---|---|---|
+| ![cornell](docs/gallery/cornell.png) | ![strike](docs/gallery/strike.png) | ![portrait](docs/gallery/portrait.png) |
+| ![sprites](docs/gallery/sprites.png) | ![props](docs/gallery/props.png) | ![game](docs/gallery/game_1.png) |
+
+Fourteen more frames, with a note on what each one is showing, are in
+[docs/gallery.md](docs/gallery.md). All of them were made by scenes in this
+repository and none of them was retouched.
 
 ---
 
-## Документация
+## Documentation
 
-| Раздел | О чём |
+The deeper documents are in Russian for now; this page and the gallery are in
+both. Translating the rest is on the list.
+
+| Section | About |
 |---|---|
-| [Архитектура](docs/architecture.md) | Слои, путь кадра, принятые решения и почему именно такие |
-| [Соглашения](docs/conventions.md) | Единицы, оси, цветовое пространство, знаки поворотов, время |
-| [Написание сцен](docs/authoring.md) | Рабочий цикл и рецепты: моделирование, генерация, свет, постобработка, дубль |
-| [Вьюпорт](docs/viewport.md) | Интерактивный просмотр, управление, режим снимка |
-| [Тесты](docs/testing.md) | Что и как покрыто |
+| [Architecture](docs/architecture.md) | Layers, the path of a frame, the decisions taken and why those |
+| [Conventions](docs/conventions.md) | Units, axes, colour space, signs of rotation, time |
+| [Writing scenes](docs/authoring.md) | The working loop and recipes: modelling, generation, light, post, takes |
+| [Viewport](docs/viewport.md) | Interactive preview, controls, snapshot mode |
+| [Tests](docs/testing.md) | What is covered, and how |
+| [Gallery](docs/gallery.md) | Frames, and what each one shows |
 
-**Справочник API**
+**API reference**
 
-| Раздел | Модули |
+| Section | Modules |
 |---|---|
-| [core](docs/api-core.md) | `math`, `image`, `random`, `file`, `deflate`, `png` (включая APNG), `zip` |
+| [core](docs/api-core.md) | `math`, `image`, `random`, `file`, `deflate`, `png` (APNG included), `zip` |
 | [world](docs/api-world.md) | `block`, `world`, `raycast`, `noise`, `shapes`, `vegetation` |
-| [scene и render](docs/api-render.md) | `camera`, `scene`, `direct`, `pathtrace`, `intersect`, `bsdf`, `lights`, постобработка |
-| [gpu](docs/api-gpu.md) | `raycast_gpu`, `pathtrace_gpu`, `wavefront_gpu`, `denoise_gpu` — тот же трассировщик на компьют-шейдерах |
-| [assets и entity](docs/api-assets.md) | `texture`, `asset_source`, текстуры блоков, скины, модели, сущности |
-| [sprite](docs/api-sprite.md) | `sprite`, `sprite_set`, `font`, `text`, `scatter` — частицы и парящий текст |
-| [prop](docs/api-prop.md) | `voxel_model`, `prop_set`, `item`, `voxelize` — воксельные предметы и пропы |
-| [rig](docs/api-rig.md) | `rig`, `rigging`, `prop_rig`, `face` — скелет, тонкие детали, вторые слои, риг глаз |
-| [anim](docs/api-anim.md) | `timing`, `ease`, `track`, `blend`, `take` — время, кривые, дубль |
-| [physics](docs/api-physics.md) | `body`, `collider`, `contact`, `constraint`, `physics_world`, `pick`, `character` — твёрдые тела, связи, луч по телам, контроллер персонажа и пловца |
-| [script](docs/api-script.md) | свой язык для песочницы: значения, парсер, интерпретатор, привязки, перезагрузка |
-| [texture_gen](engine/assets/blocks/texture_gen.hpp) | глаголы процедурных текстур: тайл, зерно, крапины, кладка. Рецепты — у того, чьи это блоки |
-| [video](docs/api-video.md) | `h264`, `mp4`, `encode` — свой контейнер и свой кодек |
+| [scene and render](docs/api-render.md) | `camera`, `scene`, `direct`, `pathtrace`, `intersect`, `bsdf`, `lights`, post-processing |
+| [gpu](docs/api-gpu.md) | `raycast_gpu`, `pathtrace_gpu`, `wavefront_gpu`, `denoise_gpu` — the same tracer on compute shaders |
+| [assets and entity](docs/api-assets.md) | `texture`, `asset_source`, block textures, skins, models, entities |
+| [sprite](docs/api-sprite.md) | `sprite`, `sprite_set`, `font`, `text`, `scatter` — particles and floating text |
+| [prop](docs/api-prop.md) | `voxel_model`, `prop_set`, `item`, `voxelize` — voxel items and props |
+| [rig](docs/api-rig.md) | `rig`, `rigging`, `prop_rig`, `face` — skeleton, fine detail, outer layers, the eye rig |
+| [anim](docs/api-anim.md) | `timing`, `ease`, `track`, `blend`, `take` — time, curves, a take |
+| [physics](docs/api-physics.md) | `body`, `collider`, `contact`, `constraint`, `physics_world`, `pick`, `character` — rigid bodies, joints, ray casts against bodies, the character controller and swimmer |
+| [script](docs/api-script.md) | A language of its own for the sandbox: values, parser, interpreter, bindings, reload |
+| [texture_gen](engine/assets/blocks/texture_gen.hpp) | The verbs of procedural texture: tile, grain, speckle, brickwork. The recipes belong to whoever owns the blocks |
+| [video](docs/api-video.md) | `h264`, `mp4`, `encode` — its own container and its own codec |
 
 ---
 
-## Сборка
+## Building
 
-Компилятор, CMake и Ninja лежат внутри Visual Studio Build Tools и **не
-находятся в PATH**. `build.cmd` поднимает окружение через `vcvars64.bat` и
-делает всё остальное сам — вызывать `cmake` напрямую не нужно.
+The compiler, CMake and Ninja live inside the Visual Studio Build Tools and are
+**not on PATH**. `build.cmd` brings the environment up through `vcvars64.bat`
+and does the rest itself — there is no need to call `cmake` directly.
 
-| Команда | Что делает |
+| Command | What it does |
 |---|---|
-| `build.cmd` | Сконфигурировать при необходимости и собрать Debug |
-| `build.cmd release` | Собрать RelWithDebInfo — для рендеров нужен только он |
-| `build.cmd run <имя>` | Собрать и запустить `scenes/<имя>.cpp` из корня проекта |
-| `build.cmd clean` | Стереть каталог `build/` |
+| `build.cmd` | Configure if needed, then build Debug |
+| `build.cmd release` | Build RelWithDebInfo — the only one worth rendering with |
+| `build.cmd run <name>` | Build, then run `scenes/<name>.cpp` from the project root |
+| `build.cmd clean` | Wipe the `build/` directory |
 
-Игра собирается тем же `build.cmd release` и лежит в
-`build\RelWithDebInfo\konstruct.exe`. Каталог `game/` отличается от
-`scenes/` именно этим: там каждый `.cpp` — отдельный исполняемый файл, здесь
-все файлы собираются в один.
+The game builds with the same `build.cmd release` and lands at
+`build\RelWithDebInfo\konstruct.exe`. That is the difference the `game/`
+directory exists to mark: there, every `.cpp` is part of one executable; in
+`scenes/`, every `.cpp` *is* one.
 
-Аргументы сцене `build.cmd` не передаёт. Если нужны — запускай экземпляр
-напрямую: `build\RelWithDebInfo\scenes\scene_diorama.exe draft`.
+`build.cmd` passes no arguments to a scene. Run the executable directly if you
+need them: `build\RelWithDebInfo\scenes\scene_diorama.exe draft`.
 
-**Требуется:** MSVC 14.5+ (C++20), Windows SDK. Игровые ассеты Minecraft
-**не обязательны** — без них сцены рендерятся плоской палитрой.
+**Needs:** MSVC 14.5+ (C++20), the Windows SDK. Minecraft's game files are
+**not required** — without them the scenes render with a flat palette and the
+game generates its own textures.
 
-> Путь проекта содержит кириллическую `С`. MSVC, CMake и Ninja её переваривают,
-> а узкие функции CRT — нет, поэтому весь файловый ввод-вывод идёт через
-> `readFileBytes` / `writeFileBytes` с переводом в UTF-16. Не обходи их.
-
----
-
-## Карта модулей
-
-```
-engine/core/            математика, изображения, PNG и APNG, ZIP, файлы, ГПСЧ, BVH
-engine/world/           палитра блоков, разреженное хранилище, обход луча,
-                        шум, моделирование, растительность
-engine/scene/           камера, освещение, состав сцены, материальный стиль
-engine/assets/          общая часть: Texture, AssetSource
-  blocks/               текстуры блоков — по имени и грани
-  entity/               скины — по прямоугольникам внутри картинки
-engine/rig/             скелет: суставы, иерархия, поза. Секунд не знает
-engine/entity/          модели-коробки, пересечение луча, инструменты рига,
-                        поиск глаз на лице, воксельные привязки к суставам
-engine/sprite/          квады частиц и текста, шрифт, россыпи
-engine/prop/            воксельные сетки: предметы из игры и свои модели
-engine/render/trace/    прямой рендер, path tracer, общее пересечение
-engine/render/post/     шумоподавитель, bloom, грейдинг, виньетка, стили
-engine/render/gl/       загрузчик GL, ресурсы GPU, вьюпорт, offscreen-цель,
-                        пост-проход, 2D-слой интерфейса
-engine/render/gpu/      тот же трассировщик на компьют-шейдерах: обход,
-                        мегаядро, волна, шумоподавитель
-engine/anim/            время: кадр, кривые, треки, дубль. Рендерера не касается
-engine/physics/         твёрдые тела, разбиение вокселей на боксы, контакты
-                        с решёткой и между телами отсечением граней, связи
-                        (верёвка, шарнир, петля, сварка) с пределами поворота,
-                        солвер импульсов, сон по островам, заморозка, удаление
-                        и луч по телам; отдельно — кинематический контроллер
-                        персонажа, он же пловец
-engine/script/          свой язык: лексер, парсер, интерпретатор, ядро,
-                        привязки к миру и физике, перезагрузка на лету
-engine/video/           H.264 и MP4 — свой контейнер и свой кодек
-engine/platform/        окно на Win32
-scenes/                 каждый .cpp → отдельный исполняемый файл
-game/                   всё вместе → один konstruct.exe
-```
-
-Движок — 32 тысячи строк в 171 файле, сцены — 20 тысяч в 50, игра — 6.6 тысячи
-в тридцати одном.
-
-Ни одного `#include "game/"` в движке нет, и ни одного имени блока тоже:
-`BlockRegistry` приходит с одним воздухом, а что положить дальше — говорит тот,
-кто строит мир. Подробности в
-[архитектуре](docs/architecture.md#движок-ничего-не-знает-о-том-что-из-него-строят).
+> The project path here contains a Cyrillic `С`. MSVC, CMake and Ninja digest
+> it; the narrow CRT functions do not, which is why all file I/O goes through
+> `readFileBytes` / `writeFileBytes` with a conversion to UTF-16. Do not route
+> around them.
 
 ---
 
-## Игра
+## Module map
+
+```
+engine/core/            maths, images, PNG and APNG, ZIP, files, RNG, BVH
+engine/world/           the block palette, sparse storage, ray traversal,
+                        noise, modelling, vegetation
+engine/scene/           camera, lighting, what a scene holds, material style
+engine/assets/          the shared half: Texture, AssetSource
+  blocks/               block textures -- by name and by face
+  entity/               skins -- by rectangle inside an image; and drawing one
+engine/rig/             the skeleton: joints, hierarchy, pose. Knows no seconds
+engine/entity/          box models, ray intersection, rigging tools, finding
+                        the eyes on a face, voxel attachments to joints
+engine/sprite/          quads for particles and text, a font, scatters
+engine/prop/            voxel grids: items from the game, and models of our own
+engine/render/trace/    direct render, path tracer, the shared intersection
+engine/render/post/     denoiser, bloom, grading, vignette, styles
+engine/render/gl/       GL loader, GPU resources, viewport, offscreen target,
+                        post pass, the 2D interface layer
+engine/render/gpu/      the same tracer on compute shaders: traversal,
+                        megakernel, wavefront, denoiser
+engine/anim/            time: frame, curves, tracks, a take. Never touches the renderer
+engine/physics/         rigid bodies, decomposition of voxels into boxes,
+                        contacts against the lattice and between bodies by
+                        face clipping, joints (rope, ball socket, hinge, weld)
+                        with rotation limits, an impulse solver, sleeping by
+                        island, freezing, removal and ray casts against bodies;
+                        separately, a kinematic character controller and swimmer
+engine/script/          a language of its own: lexer, parser, interpreter, core,
+                        bindings to the world and to physics, live reload
+engine/video/           H.264 and MP4 -- its own container and its own codec
+engine/platform/        a window on Win32
+scenes/                 every .cpp becomes its own executable
+game/                   all of it together becomes one konstruct.exe
+```
+
+The engine is thirty-two thousand lines across 171 files, the scenes twenty
+thousand across fifty, the game six and a half thousand across thirty-one.
+
+There is not one `#include "game/"` in the engine, and not one block name
+either: a `BlockRegistry` arrives holding air, and what goes in after that is
+said by whoever is building the world. The details are in the
+[architecture](docs/architecture.md).
+
+---
+
+## The game
 
 ```
 build\RelWithDebInfo\konstruct.exe
 ```
 
-Запускается в главное меню поверх настоящего мира, который медленно
-поворачивается. Не картинка и не панорама: это тот же вьюпорт с той же
-`Scene`, поэтому фон не может устареть — он и есть движок, показывающий сам
-себя.
+It comes up in a main menu standing over a real world that turns slowly. Not a
+picture and not a panorama: it is the same viewport over the same `Scene`, so
+the background cannot go stale — it *is* the engine, showing itself.
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| Мышь | Обзор |
-| `W` `A` `S` `D` | Идти, `Shift` — бежать, `Space` — прыжок |
-| Левая кнопка | Ломать; удерживать — копать дальше |
-| Правая кнопка | Поставить блок из руки |
-| `1`–`9`, колесо | Что в руке: физган в первом слоте, блоки дальше |
-| `Q` | Меню спавна: пропы и регдоллы |
-| `F5` | От первого лица / от третьего |
-| `F3` | Вид: `PLAIN` → `VIVID` → `CEL` → `INK` |
-| `F1` | Отладочная строка |
-| `Esc` | Меню паузы |
-| `-` и `=` | Скорость мыши |
+| Mouse | Look |
+| `W` `A` `S` `D` | Walk, `Shift` to run, `Space` to jump |
+| Left button | Break; hold to keep digging |
+| Right button | Place the block in hand |
+| `1`–`9`, wheel | What is in hand: the physgun in the first slot, blocks after it |
+| `Q` | Spawn menu: props and ragdolls |
+| `F5` | First person / third person |
+| `F3` | Look: `PLAIN` → `VIVID` → `CEL` → `INK` |
+| `F1` | Debug line |
+| `Esc` | Pause menu |
+| `-` and `=` | Mouse speed |
 
-**В воде** `Space` плывёт вверх, `Shift` — вниз. Это не отдельный режим: пока
-под ногами есть опора, прыжок остаётся прыжком, а спринт не значит в воде
-ничего, поэтому та же клавиша ныряет.
+**In water** `Space` swims up and `Shift` swims down. That is not a separate
+mode: while there is something underfoot a jump stays a jump, and sprinting
+means nothing in water, so the same key dives.
 
-**Физган — предмет в руке, а не режим.** Он лежит в первом слоте того же ряда,
-что и блоки, берётся `1` или колесом, и пока он в руке — мышь принадлежит ему.
-Клавиши-переключателя нет намеренно: клавиша невидима (на экране ничто не
-говорит, нажата она или нет), и она делает инструмент вещью другого сорта, чем
-блок, — а он не другого сорта. И то и другое — то, что в руке, и то и другое
-решает, что делают кнопки мыши.
+**The physgun is a thing in your hand, not a mode.** It sits in the first slot
+of the same row as the blocks, comes out with `1` or the wheel, and while it is
+in hand the mouse belongs to it. There is deliberately no toggle key: a key is
+invisible — nothing on screen says whether it is pressed — and it would make
+the tool a different sort of thing from a block, which it is not. Both are what
+is in your hand, and both decide what the mouse buttons do.
 
 | | |
 |---|---|
-| Левая кнопка | Держать; отпустить — бросить |
-| Колесо | Ближе и дальше |
-| `E` + мышь | Поворачивать то, что держишь |
-| Правая кнопка | Заморозить — то, что в луче, или то, на что смотришь |
-| `R` | Разморозить всё |
+| Left button | Hold; release to let go |
+| Wheel | Closer and further |
+| `E` + mouse | Turn what you are holding |
+| Right button | Freeze — whatever is in the beam, or whatever you are looking at |
+| `R` | Unfreeze everything |
 
-Запустить сразу с ним в руках — `konstruct physgun`.
+To start with it in hand: `konstruct physgun`.
 
-**Он берёт и блоки.** Наведён не на тело, а на мир — курок вынимает сам блок:
-ячейка пустеет, а на её месте встаёт твёрдое тело того же размера и цвета.
-Это не приделанный сбоку частный случай, а ровно то, ради чего появились
-[пропы](docs/api-prop.md): блок — ячейка решётки и повернуться не может, а
-вещь, которую несут под углом, обязана перестать быть ячейкой. Дальше это
-обычное тело, и остальной инструмент уже умеет его держать.
+**It takes blocks too.** Aimed at the world rather than at a body, the trigger
+lifts the block itself: the cell empties and a rigid body of the same size and
+colour stands up where it was. That is not a special case bolted on, it is
+exactly what [props](docs/api-prop.md) exist for: a block is a cell on a
+lattice and cannot turn, so a thing carried at an angle has to stop being one.
 
-Мир при этом рушится по-настоящему, и обратно блок сам не встаёт: поднятый —
-он мебель. Поэтому подсказка под рядом меняется с `GRAB` на `LIFT THIS BLOCK`,
-когда под прицелом мир, а не тело: курок, который молча разбирает стену, обязан
-сначала сказать, что он собирается сделать.
+The world really does come apart, and the block does not go back by itself:
+once lifted, it is furniture. Which is why the hint under the hotbar changes
+from `GRAB` to `LIFT THIS BLOCK` when the crosshair is on the world rather than
+on a body — a trigger that silently dismantles a wall owes you a word first.
 
-### Меню спавна
+### The spawn menu
 
-`Q` открывает полку: ящик, бочка, доска, балка, мяч, лампа и регдолл. Щелчок
-ставит вещь перед собой.
+`Q` opens a shelf: a crate, a barrel, a plank, a beam, a ball, a lamp and a
+ragdoll. A click puts one in front of you.
 
-Мир при этом **не останавливается** — в отличие от меню паузы. Спавнят вещь
-затем, чтобы посмотреть, как она упадёт, и меню, которое замораживает падение,
-превращает это в две операции. Забирает оно только указатель: курсор
-возвращается, поэтому ходьба и обзор на это время выключаются.
+The world **does not stop** while it is open, unlike the pause menu. You spawn
+a thing in order to watch it fall, and a menu that freezes the fall turns that
+into two operations. It takes only the pointer: the cursor comes back, so
+walking and looking are off for as long as it is up.
 
-Регдолл был отдельной клавишей `G` и перестал ею быть по той же причине, по
-которой физган перестал быть клавишей `F`: одна вещь, которую можно поставить,
-— это клавиша, а две — это меню, которое так и не написали. Теперь вход один и
-в нём есть место.
+The ragdoll used to be its own key `G` and stopped being one for the same
+reason the physgun stopped being key `F`: one thing you can place is a key, and
+two things are a menu somebody never wrote. Now there is one door in, and there
+is room inside it.
 
-Каталог живёт в `game/props.cpp` и собирается кодом, как текстуры блоков и
-запасной скин: файлов ассетов игра по-прежнему не требует. Плитки в меню
-нарисованы **самими моделями** — ортографический вид спереди, по прямоугольнику
-на воксельный столбик, — потому что модель уже здесь, а оверлей уже умеет
-рисовать прямоугольники.
+The catalogue lives in `game/props.cpp` and is built in code, like the block
+textures and the fallback skin: the game still requires no asset files. The
+tiles in the menu are drawn **by the models themselves** — an orthographic
+front view, one rectangle per voxel column — because the model is already here
+and the overlay already knows how to draw rectangles.
 
-Пропов держится не больше сорока восьми, регдоллов — восьми, и по той же
-причине: широкая фаза квадратична по телам, поэтому куча, которая только
-растёт, — это игра, которая тем медленнее, чем дольше в неё играют.
+No more than forty-eight props are kept, and no more than eight ragdolls, for
+the same reason: the broad phase is quadratic in bodies, so a pile that only
+grows is a game that gets slower the longer it is played.
 
-### Виды
+### Looks
 
-Вьюпорт рисует мир в линейный HDR-буфер, а один проход в конце превращает его
-в картинку — тот же порядок, что у процессорных рендереров: `Image` линейный,
-`post/` его фильтрует, тональная кривая срабатывает ровно один раз.
-
-| | |
-|---|---|
-| `PLAIN` | Как было: затенение, экспозиция, тонмап |
-| `VIVID` | Тот же мир, но снятый как следует: bloom на глоустоуне и лаве, чуть больше цвета, виньетка |
-| `CEL` | Четыре ступени света и контур по геометрии |
-| `INK` | Контур без ступеней, цвет приглушён |
-
-**У cel два шва, и это не придирка.** Ступени накладываются при затенении,
-потому что квантовать надо освещённость, а к моменту готового кадра она уже
-умножена на альбедо — полосить цвет значит полосить текстуру вместе со светом.
-Контур накладывается в пост-проходе, потому что краю нужны соседи. То же
-разделение, что [архитектура](docs/architecture.md#у-стиля-два-шва-и-выбор-между-ними-не-вкусовой)
-описывает для трассировщика.
-
-Контур берётся из **глубины и нормалей**, а не из картинки. Фильтр по
-изображению обвёл бы заодно каждую границу текстуры, то есть каждую грань
-блока, — вышла бы раскраска, а не cel.
-
-### Одиночная игра
-
-Два вида, и разница не в том, как они хранятся — оба код, потому что формата
-мира здесь нет и сцена намеренно не формат. Разница в том, зачем они.
+The viewport draws the world into a linear HDR buffer, and one pass at the end
+turns it into a picture — the same order the CPU renderers use: `Image` is
+linear, `post/` filters it, and the tone curve fires exactly once.
 
 | | |
 |---|---|
-| **NEW WORLD** | Каждый раз другой и один и тот же для данного зерна. Туда идут, чтобы оказаться где-то новом. `R` в меню — другое зерно |
-| **be_construct** | Плоская стройплощадка: размеченный пол, стена с лампами, башня с площадками, бассейн с мелкой и глубокой половиной, лестницы с шагом в один, два и три блока, ряд образцов материалов, яма с лавой |
-| **be_lake** | Чаша воды в кольце леса, песчаный берег, остров с деревом посередине |
-| **be_valley** | Река между двумя хребтами: ель наверху, дуб и берёза у воды, снег на гребнях |
+| `PLAIN` | As it was: shading, exposure, tonemap |
+| `VIVID` | The same world, shot properly: bloom on glowstone and lava, a little more colour, a vignette |
+| `CEL` | Four steps of light and an outline taken from geometry |
+| `INK` | The outline without the steps, colour muted |
 
-Именованные карты одинаковы у всех и всегда, и приходят все в одну точку —
-в этом и смысл стройплощадки.
+**Cel has two seams, and that is not a quibble.** The steps are applied during
+shading, because what has to be quantised is *illumination*, and by the time a
+frame is finished it has already been multiplied by albedo — banding the colour
+would band the texture along with the light. The outline is applied in the post
+pass, because an edge needs its neighbours. The same division the
+[architecture](docs/architecture.md) describes for the tracer.
 
-Аргументы: `look=<вид>`, `seed=`, `extent=`, `map=<имя>` (запускает сразу, минуя меню),
-`menu` / `menu=play` / `menu=paused`, `script=<файл>`, `skin=<png>`, `third`,
-`snapshot <png>` с `frames=`, `yaw=`, `pitch=`, `dist=`, `swing`, `still`,
-`ragdoll` / `ragdoll=<n>`, `physgun`, `spawn` (открыть полку), `props`
-(поставить по одному каждого) и `lift` (взять физганом блок из пола).
+The outline comes from **depth and normals**, not from the picture. An
+image-space filter would trace every texture boundary as well, which is to say
+every face of every block — that is a colouring book, not cel.
 
-Отдельно стоит **`konstruct textures`** — он ничего не запускает, а пишет
-контактный лист всех сгенерированных тайлов и трассированную витрину из них
-(`sheet` — только лист, мгновенно; `size=64` — другое разрешение). Это была
-сцена `scene_textures`, пока рецепты текстур жили в движке; теперь они
-принадлежат игре, а сцена с игрой слинковаться не может, поэтому инструмент
-переехал туда, где пиксели.
+### Single player
 
-Последние три — про то же, про что и весь режим снимка: интерфейс, до которого
-нельзя дотянуться из сборочного скрипта, не проверяется никак. У снимка нет
-мыши, поэтому `swing` машет сам, `ragdoll` бросает сам, а `physgun` достаёт
-инструмент и сам берётся за то, что перед ним. В снимке отладочная строка
-включена без `F1` — числа и есть то, ради чего снимок делают, когда что-то
-проверяют, а не любуются.
-
-`physgun` работает и в окне: там он просто начинает игру с инструментом в
-руках, вместо того чтобы жать `F`.
-
-### Здоровье и выносливость
-
-Полоса, которая не может двигаться, — украшение, а украшение, похожее на
-механику, хуже её отсутствия: оно обещает, что мир умеет навредить, и не
-выполняет. Поэтому сначала появились **источники**, а полосы — последними.
+Two kinds, and the difference is not how they are stored — both are code,
+because there is no world format here and a scene is deliberately not one. The
+difference is what they are for.
 
 | | |
 |---|---|
-| Падение | Дороже `13` м/с. Прыжок приземляется на 8.6, так что на ровном месте себе навредить нечем |
-| Вода | Двенадцать секунд воздуха, потом захлёбываешься. Всплыл — вдох |
-| Лава | Не выживают, и не должны: пары секунд хватает выбраться, если сразу |
-| Пустота | Провалился ниже мира — конец. Стало достижимым в тот день, когда жидкости перестали быть твёрдыми: два блока лавы над пустотой — это дыра |
-| Выносливость | Тратится на бег и на плавание, а пустая — глушит `Shift`. Это правило про движение, а не число, которое уменьшается |
-| Лечение | Медленно и **за счёт выносливости**, так что перебежавший долину заодно не лечится. Единственная связь между двумя полосами — и то, что не даёт им быть двумя отдельными украшениями |
+| **NEW WORLD** | Different every time, and the same every time for a given seed. You go there to be somewhere new. `R` in the menu rolls another seed |
+| **be_construct** | A flat build site: a marked floor, a wall with lamps, a tower with platforms, a pool with a shallow half and a deep one, stairs of one, two and three blocks, a row of material samples, a lava pit |
+| **be_lake** | A bowl of water ringed by forest, a sand shore, an island with a tree in the middle |
+| **be_valley** | A river between two ridges: spruce on top, oak and birch by the water, snow on the crests |
 
-Смерти как экрана нет: на нуле приходишь в себя на точке появления с полными
-полосами. Песочница — место, где пробуют, и цена ошибки — дорога обратно.
+The named maps are the same for everybody and always, and everyone arrives at
+the same spot — which is the whole point of a build site.
 
-Полосы стоят одной колонкой над рядом руки, а не по трём углам. Воздух
-показывается, только когда его меньше полного: полоса, которая всегда полна,
-когда её видно, — полоса, которую не читают.
+Arguments: `look=<name>`, `seed=`, `extent=`, `map=<name>` (starts straight
+away, skipping the menu), `menu` / `menu=play` / `menu=paused`,
+`script=<file>`, `skin=<png>`, `third`, `snapshot <png>` with `frames=`,
+`yaw=`, `pitch=`, `dist=`, `swing`, `still`, `ragdoll` / `ragdoll=<n>`,
+`physgun`, `spawn` (open the shelf), `props` (place one of each) and `lift`
+(take a block out of the floor with the physgun).
 
-### Персонаж, а не камера
+**`konstruct textures`** stands apart — it starts nothing, and writes a contact
+sheet of every generated tile plus a traced showcase made of them (`sheet` for
+the sheet alone, instantly; `size=64` for another resolution). This was the
+scene `scene_textures` while the texture recipes lived in the engine; they
+belong to the game now, and a scene cannot link against the game, so the tool
+moved to where the pixels are.
 
-Разница набирается из вещей, каждая из которых по отдельности незаметна:
+The last few are about the same thing the whole snapshot mode is about:
+interface you cannot reach from a build script is interface that is not checked
+at all. A snapshot has no mouse, so `swing` swings by itself, `ragdoll` throws
+by itself, and `physgun` draws the tool and takes hold of whatever is in front
+of it. In a snapshot the debug line is on without `F1` — the numbers are the
+reason you take a snapshot when you are checking something rather than looking
+at it.
 
-- **Походка идёт по пройденному пути, а не по часам.** Упрёшься в стену с
-  зажатым `W` — ноги встанут, потому что встала земля. Никакого специального
-  случая для этого нет и не нужно.
-- **Шаг вверх — это шаг.** `stepHeight` равен 1.05, то есть заход на блок
-  поднимает ступни на целый блок за один тик. Глазу разрешено отстать и
-  догнать, и ровно это отличает ступеньку от телепортации.
-- **Приземление гнёт колени.** Просадка пропорциональна скорости удара и
-  возвращается критически задемпфированной пружиной, а не таймером.
-- **Покачивание при ходьбе** — вертикаль, поперечина и градус крена. Меньше
-  порога, на котором его замечают, и заметно больше того, на котором замечают
-  его отсутствие.
-- **Бег расширяет угол обзора** на семь градусов.
-- **Рука в кадре**: воксельная модель правой руки, собранная из скина, держит
-  выбранный блок и машет на каждый удар — включая удары по воздуху.
-- **`F5` — вид со стороны**, и там видно всё остальное: цикл ходьбы, замах,
-  поза в полёте, дыхание на месте, голова смотрит куда смотришь ты, плечи
-  разворачиваются следом за ней с запаздыванием.
+`physgun` works in a window too: there it simply starts the game with the tool
+in hand instead of pressing `1`.
 
-Ничего из этого не разговаривает с контроллером: `Character` решает, где
-игрок, а `game/animator.hpp` — как это выглядит, и обратной связи между ними
-нет. Анимация, которая двигала бы ноги, — это игра, спорящая с управлением.
+### Health and stamina
 
-Игровых файлов Minecraft не требуется вообще: текстуры блоков движок
-**генерирует сам** (`game/blocks.cpp` глаголами из `engine/assets/blocks/`), скин берётся из
-`assets/skins/`, а если его нет — рисуется кодом. Персонаж — кинематическая
-коробка по решётке, а не твёрдое тело.
+A bar that cannot move is decoration, and decoration that looks like a mechanic
+is worse than none: it promises that the world can hurt you and does not
+deliver. So the **sources** came first and the bars came last.
+
+| | |
+|---|---|
+| Falling | Costs above `13` m/s. A jump lands at 8.6, so on level ground there is nothing to hurt yourself with |
+| Water | Twelve seconds of air, then you drown. Surface, and you breathe |
+| Lava | Nobody survives it, and nobody should: a couple of seconds is enough to get out if you go straight away |
+| The void | Below the world is the end. It became reachable the day fluids stopped being solid: two blocks of lava over nothing is a hole |
+| Stamina | Spent running and swimming, and an empty bar mutes `Shift`. That is a rule about movement, not a number going down |
+| Healing | Slow, and **paid for out of stamina**, so somebody who has just run across a valley does not heal on the way. The only coupling between the two bars, and the thing that stops them being two separate decorations |
+
+There is no death screen: at zero you come round at the spawn point with full
+bars. A sandbox is a place to try things, and the price of a mistake is the
+walk back.
+
+The bars stand in one column above the hotbar rather than in three corners. Air
+shows only when it is less than full: a bar that is always full whenever it is
+visible is a bar nobody reads.
+
+### A character, not a camera
+
+The difference is assembled out of things each of which is unremarkable alone:
+
+- **The gait runs on distance covered, not on the clock.** Walk into a wall
+  holding `W` and the legs stop, because the ground stopped. There is no
+  special case for that and there does not need to be.
+- **A step up is a step.** `stepHeight` is 1.05, so climbing onto a block
+  lifts the feet a whole block in one tick. The eye is allowed to lag and
+  catch up, and that is exactly what separates a stair from a teleport.
+- **Landing bends the knees.** The dip is proportional to impact speed and
+  returns on a critically damped spring rather than on a timer.
+- **Walk bob** — vertical, lateral, and a degree of roll. Below the threshold
+  at which it is noticed, and well above the one at which its absence is.
+- **Running widens the field of view** by seven degrees.
+- **A hand in frame**: a voxel model of the right arm, built out of the skin,
+  holding the selected block and swinging on every strike — including the ones
+  that hit nothing.
+- **`F5` is the view from outside**, and everything else is visible there: the
+  walk cycle, the wind-up, the pose in flight, breathing while standing, the
+  head looking where you look and the shoulders following it a beat later.
+
+None of that talks to the controller: `Character` decides where the player is
+and `game/animator.hpp` decides how it looks, with no feedback between them.
+Animation that moved the legs would be a game arguing with its own controls.
+
+Minecraft's files are not needed at any point: the engine **generates** the
+block textures itself (`game/blocks.cpp`, out of the verbs in
+`engine/assets/blocks/`), the skin comes from `assets/skins/`, and if there is
+none it is drawn in code. The character is a kinematic box against the lattice,
+not a rigid body.
 
 ---
 
-## Что умеет
+## What it does
 
-- **Мир.** Разреженное хранилище из плотных чанков 16³; сетка чанков заодно
-  работает ускоряющей структурой. Двухуровневый DDA-обход луча.
-- **Рендер.** Path tracer с явной выборкой источников, преломляющими средами,
-  GGX-проводниками и русской рулеткой. Плюс быстрый прямой рендер для превью.
-- **Он же на видеокарте.** Тот же интегратор компьют-шейдерами, волной с
-  очередями по стадиям: трассировка кадра фильма 1280×720 при 64 спп — 3.4
-  секунды против 68 на процессоре в том же прогоне. Процессорный путь остаётся
-  эталоном, с которым GPU сверяется на каждом прогоне тестов.
-- **Материалы.** Вода и стекло — среды с поглощением по длине пути, а не
-  крашеные поверхности. Металлы, эмиссия, биомный тинт.
-- **Ассеты Minecraft.** Чтение `.jar` и ресурспаков напрямую, без распаковки.
-  Текстуры блоков и скины персонажей — две отдельные подсистемы.
-- **Сущности.** Блочные модели из скина, classic и slim, внешний слой с
-  вырезом по альфе.
-- **Риггинг.** Скелет с родительством: поворот торса уносит голову и руки.
-  Части режутся на сегменты вместе со своими прямоугольниками скина — локти,
-  колени, челюсть. Привязки для мелочей, вторые слои на своих суставах, и тот
-  же скелет для составных пропов. Глаза движок находит на лице сам, закрашивает
-  и строит заново — на своих суставах.
-- **Генерация.** Моделирующие примитивы, буфер обмена с поворотами,
-  параметрические деревья, распределение Пуассона, шум Перлина и fBm.
-- **Частицы и текст.** Один примитив на оба: плоский квад с альфа-вырезом.
-  Пыль в столбе света освещена этим столбом, уголёк над лавой светится, надпись
-  отбрасывает тень и попадает в отражение. Шрифт берётся из игры — или
-  встроенный, если её нет.
-- **Вещи в руках.** Любая воксельная модель вешается на сустав сущности:
-  предмет в кулаке, фонарь на поясе. Один воксель равен одному модельному
-  пикселю, поэтому вещь из игры выходит игрового размера, а поза уносит её с
-  собой — привязка берёт ту же матрицу сустава, которой рендерер уплощает
-  коробки.
-- **Предметы и пропы.** Текстура предмета Minecraft выдавливается в воксели —
-  так их и рисует игра. Свои модели строятся четырьмя путями: захват куска мира
-  со всеми примитивами `shape::`, рисунок текстом, формула, прямая запись.
-  Размещаются вне решётки: свободный поворот, любой масштаб.
-- **Эффекты.** Глубина резкости, шумоподавитель по AOV, bloom, грейдинг,
-  виньетка, зерно.
-- **Стили.** Простой рендер без шейдеров, plastic, cel-шейдинг с контуром по
-  геометрии, pixelated. Лежат в двух швах по разные стороны от переноса света,
-  и это не вкусовое: блик надо трассировать, полосы — квантовать по готовому
-  кадру.
-- **Анимация.** Дубль — функция времени над готовой сценой, не формат и не
-  таймлайн. На двойках второй кадр пары — байтовая копия, а не второй trace.
-  Риг по-прежнему ничего не знает о секундах, и это правильнее, чем казалось,
-  когда секунд ещё не существовало.
-- **Видео.** APNG собирается из кадров без пересжатия. MP4 — свой Baseline
-  H.264: I_16×16, все девять режимов I_4×4, P-кадры с компенсацией движения и
-  skip, четвертьпиксельные векторы на шеститаповом фильтре, деблокинг, CAVLC
-  по машинно сверенным таблицам и I_PCM как честный запасной выход. Реконструкция сходится с ffmpeg побитово — включая
-  последовательности с межкадровым предсказанием, где разойтись значит
-  расходиться всё дальше с каждым кадром.
-- **Физика.** Твёрдые тела вне решётки: воксельная модель жадно режется на
-  коробки, солвер последовательных импульсов держит контакты и связи — верёвка,
-  шарнир, петля, сварка, — а связь умеет трение, мотор, пределы поворота и
-  умеет сломаться под нагрузкой. Тела спят островами: коробка, лежащая на
-  движущейся коробке, не засыпает под ней. Тела **удаляются**, и слот выдаётся
-  заново — иначе широкая фаза до конца сессии перешагивает мёртвых. Мир как
-  соперник тут проще, а не сложнее: против решётки единичных кубов нет ни
-  ускоряющей структуры для мешей, ни тонкого треугольника, сквозь который
-  проваливаются.
-- **Контакт коробки с коробкой** строится отсечением граней, и это вторая
-  попытка. Первая брала углы одного тела внутри другого — этого хватает
-  торчащему углу и не хватает единственной расстановке, которую песочница
-  делает постоянно: плоскость на плоскости. Там углы лежат **на** границе, а
-  не внутри неё, так что попадёт угол в манифолд или нет, решалось в последних
-  битах float и менялось каждый шаг. Ящик на ящике получал вместо четырёх
-  точек ноль-две подвижных, наклонялся всё сильнее и через несколько секунд
-  оказывался внутри нижнего. Пять кубов стояли — но только потому, что
-  успевали заснуть раньше, чем это начиналось, и потому это выглядело
-  работающим.
-- **Персонаж.** Контроллер отдельно от солвера и намеренно **кинематический**:
-  игрока не толкают, он идёт куда сказано, а столкновение только отнимает то,
-  чего он не может получить. Три развёртки по осям вместо решателя, ступень в
-  1.05 блока (лестница из целых блоков проходится шагом, а не прыжком) и
-  гравитация Minecraft, а не Земли.
-- **Вода.** Не стена и не воздух: жидкая ячейка ничего не останавливает и
-  давит на то, что внутри неё. Погружение — доля коробки под водой, и всё
-  считается через неё: подъёмная сила чуть меньше веса (отпустишь всё —
-  медленно тонешь), сопротивление, потолок скорости падения, который
-  затягивается по мере погружения. Падение с полусотни блоков кончается
-  всплеском, а не на дне. Из воды **вылезают** — тот же шаг в 1.05, что и на
-  лестнице, просто разрешённый и без опоры под ногами. Контроллер сообщает
-  наружу и то, **какая** это жидкость: держат они одинаково, но одна красит
-  кадр синим, а другая убивает, и игре с одним флагом `inWater` пришлось бы
-  гадать. Голова под водой — синеет и видно на несколько блоков; в лаве —
-  оранжевое и видно ровно тот блок, внутри которого ты.
-- **Инструмент в руке.** Собственная воксельная модель — коготь из трёх лап вокруг
-  светящегося ядра, — построенная кодом, как текстуры блоков и запасной скин:
-  файлов ассетов игра по-прежнему не требует. Одна и та же модель служит
-  view-моделью от первого лица и висит на суставе руки от третьего, потому что
-  проп принимает матрицу и любой масштаб, а `Entity` — нет. Луч рисуется от
-  настоящего дула: точку берёт с той же матрицы, которой модель поставлена, так
-  что он ходит вместе с рукой и не знает про неё ничего.
-- **Физган.** Взять что угодно свободное, поднести, повернуть, приморозить.
-  Держит **сервопривод**, а не сустав: позиционный проход солвера намеренно
-  медленный (блок в секунду), и приваренный к якорю ящик тянулся бы следом
-  метром позади. Скорость выставляется до шага, поэтому всё остальное — тяжесть,
-  контакты, связи — по-прежнему считается, и ящик, затащенный в стену,
-  останавливается о стену. Заморозка — состояние тела, а не инструмента:
-  примороженная доска остаётся тем, на что можно ставить и что можно взять
-  снова. Наведённый на мир, он вынимает **блок**: ячейка пустеет, а на её месте
-  встаёт тело из восьми вокселей на грань, покрашенное гранями той же
-  библиотеки текстур. Это не частный случай, а то, ради чего появились пропы —
-  ячейка решётки не поворачивается, значит вещь, которую несут под углом,
-  обязана перестать быть ячейкой.
-- **Полка.** `Q` — сетка того, что можно поставить: ящик, бочка, доска, балка,
-  мяч, лампа и регдолл, все собранные кодом. Мир при этом не останавливается,
-  потому что вещь спавнят затем, чтобы посмотреть, как она упадёт; меню
-  забирает только указатель. Плитки нарисованы самими моделями — вид спереди,
-  прямоугольник на воксельный столбик, — так что новый проп появляется в меню
-  тем, что он есть, и ничего рисовать для него не нужно.
-- **Регдоллы.** Шесть тел на суставах с **конусом и кручением**: без пределов
-  солвер не ошибается — шаровой шарнир правда свободен по всем трём осям, — но
-  голова проворачивается кругом, а колено складывается не туда. Летит регдолл
-  одним твёрдым телом (скорость плюс общее вращение вокруг груди), а суставы
-  делают остальное. Живут по бюджету: широкая фаза квадратична по телам,
-  поэтому куча, которая только растёт, — это игра, которая тем медленнее, чем
-  дольше в неё играют. Замерено: восемь регдоллов, 48 тел, 0.64 мс на шаг пока
-  всё в воздухе и 0.01 мс, когда всё улеглось.
-- **Скрипты.** Свой язык `.bly` для геймплейного слоя: векторы — значения, а не
-  аллокации, всё состояние живёт на стороне хоста, а куча предыдущей программы
-  освобождается целиком, поэтому сборщика мусора нет и он не нужен. Битый файл
-  при сохранении стоит сообщения, а не сессии: прежняя программа продолжает
-  работать.
-- **Игра.** Сгенерированный мир, ходьба от первого лица, ломание и постановка
-  блоков — [ниже отдельно](#игра). Игровых файлов Minecraft не требуется вообще.
-- **Вьюпорт.** OpenGL 4.6 core на голом Win32 + WGL, со своим загрузчиком.
-  Находишь ракурс — нажимаешь `F` — получаешь готовый C++ для сцены.
+- **World.** Sparse storage of dense 16³ chunks; the chunk grid doubles as the
+  acceleration structure. Two-level DDA ray traversal.
+- **Render.** A path tracer with explicit light sampling, refractive media,
+  GGX conductors and Russian roulette. Plus a fast direct render for previews.
+- **The same, on the card.** The same integrator in compute shaders, wavefront
+  with per-stage queues: a 1280×720 film frame at 64 spp traces in 3.4 seconds
+  against 68 on the processor in the same run. The CPU path stays the
+  reference the GPU is checked against on every test run.
+- **Materials.** Water and glass are media with absorption along the path, not
+  painted surfaces. Metals, emission, biome tint.
+- **Minecraft assets.** Reads `.jar` files and resource packs directly, without
+  unpacking. Block textures and character skins are two separate subsystems.
+- **Entities.** Box models from a skin, classic and slim, an outer layer cut
+  away by alpha.
+- **Rigging.** A skeleton with parenting: turning the torso takes the head and
+  arms with it. Parts are cut into segments along with their skin rectangles —
+  elbows, knees, a jaw. Attachments for small things, outer layers on joints of
+  their own, and the same skeleton for compound props. The engine finds the
+  eyes on a face itself, paints them out and rebuilds them on joints of their
+  own.
+- **Generation.** Modelling primitives, a clipboard with rotations,
+  parametric trees, Poisson-disk distribution, Perlin noise and fBm.
+- **Particles and text.** One primitive for both: a flat quad with an alpha
+  cut. Dust in a shaft of light is lit by that shaft, an ember over lava glows,
+  a label casts a shadow and turns up in the reflection. The font comes from
+  the game — or from the built-in one if there is no game.
+- **Things in hands.** Any voxel model hangs on an entity's joint: an item in
+  a fist, a lantern on a belt. One voxel equals one model pixel, so an item
+  from the game comes out game-sized, and the pose carries it along — the
+  attachment takes the same joint matrix the renderer flattens boxes with.
+- **Items and props.** A Minecraft item texture is extruded into voxels, which
+  is how the game draws them too. Models of your own are built four ways:
+  capture a piece of the world with all the `shape::` primitives, draw with
+  text, write a formula, write voxels directly. Placed off the lattice: free
+  rotation, any scale.
+- **Effects.** Depth of field, an AOV-guided denoiser, bloom, grading,
+  vignette, grain.
+- **Styles.** Flat shading with no shaders, plastic, cel with an outline taken
+  from geometry, pixelated. They sit in two seams on either side of light
+  transport, and that is not taste: a highlight has to be traced, and bands
+  have to be quantised on a finished frame.
+- **Animation.** A take is a function of time over a finished scene, not a
+  format and not a timeline. On twos, the second frame of a pair is a byte copy
+  rather than a second trace. The rig still knows nothing about seconds, which
+  turned out to be more right than it looked when seconds did not exist.
+- **Video.** APNG is assembled from frames without re-compression. MP4 is its
+  own Baseline H.264: I_16×16, all nine I_4×4 modes, P-frames with motion
+  compensation and skip, quarter-pixel vectors on a six-tap filter, deblocking,
+  CAVLC against machine-checked tables, and I_PCM as an honest way out.
+  Reconstruction agrees with ffmpeg bit for bit — including sequences with
+  inter prediction, where to diverge is to diverge further with every frame.
+- **Physics.** Rigid bodies off the lattice: a voxel model is greedily cut into
+  boxes, a sequential-impulse solver holds contacts and joints — rope, ball
+  socket, hinge, weld — and a joint can have friction, a motor, rotation
+  limits, and can break under load. Bodies sleep by island: a crate resting on
+  a moving crate does not fall asleep under it. Bodies are **removed**, and the
+  slot is handed out again — otherwise the broad phase steps over the dead for
+  the rest of the session. The world as an opponent is easier here, not harder:
+  against a lattice of unit cubes there is no mesh acceleration structure and
+  no thin triangle to fall through.
+- **Box against box** is built by clipping faces, and it is the second attempt.
+  The first took the corners of one body inside the other, which is enough for
+  a protruding corner and not enough for the one arrangement a sandbox makes
+  constantly: a flat face on a flat face. There the corners lie *on* the
+  boundary rather than inside it, so whether one counted was decided in the
+  last bits of a float and changed every step. A crate on a crate got nought to
+  two moving points instead of four, tilted further and further, and after a
+  few seconds was inside the one below. Five cubes stood — but only because
+  they fell asleep before the rot set in, which is what made it look like it
+  worked.
+- **Character.** The controller is separate from the solver and deliberately
+  **kinematic**: the player is not pushed, they go where told, and a collision
+  only subtracts what they cannot have. Three sweeps along the axes instead of
+  a solver, a step of 1.05 blocks (a staircase of whole blocks is walked, not
+  jumped) and Minecraft's gravity rather than Earth's.
+- **Water.** Neither a wall nor air: a fluid cell stops nothing and presses on
+  whatever is inside it. Submersion is the fraction of the box under water, and
+  everything is computed through it: buoyancy slightly under weight (let go of
+  everything and you sink slowly), drag, and a ceiling on falling speed that
+  tightens as you go under. A fall from fifty blocks ends in a splash rather
+  than on the bottom. You **climb out** of water with the same 1.05 step as on
+  a staircase, simply allowed without ground underfoot. The controller also
+  reports *which* fluid it is: both hold you up the same way, but one paints
+  the frame blue and the other kills you, and a game with a single `inWater`
+  flag would have to guess. Head under water goes blue and you see a few
+  blocks; in lava it is orange and you see exactly the block you are inside.
+- **The tool in hand.** A voxel model of its own — a claw of three prongs
+  around a glowing core — built in code like the block textures and the
+  fallback skin: the game still requires no asset files. The same model serves
+  as the first-person view model and hangs on the arm joint in third person,
+  because a prop takes a matrix and any scale and an `Entity` does not. The
+  beam is drawn from the real muzzle: it takes the point off the same matrix
+  the model was placed with, so it moves with the hand and knows nothing about
+  it.
+- **Physgun.** Take anything loose, bring it close, turn it, pin it. It holds
+  with a **servo**, not a joint: the solver's positional pass is deliberately
+  slow (a block per second), and a crate welded to an anchor would trail a
+  metre behind. The velocity is set before the step, so everything else —
+  weight, contacts, joints — is still computed, and a crate dragged into a wall
+  stops at the wall. Freezing is a state of the body, not of the tool: a frozen
+  plank is still something to stack on and something to pick up again. Aimed at
+  the world, it lifts a **block**: the cell empties and a body of eight voxels
+  per face stands up, painted from the faces of the same texture library. Not a
+  special case, but the thing props exist for — a cell cannot turn, so a thing
+  carried at an angle has to stop being one.
+- **The shelf.** `Q` — a grid of what can be placed: crate, barrel, plank,
+  beam, ball, lamp and ragdoll, all built in code. The world does not stop,
+  because you spawn a thing in order to watch it fall; the menu takes only the
+  pointer. The tiles are drawn by the models themselves — a front view, one
+  rectangle per voxel column — so a new prop appears in the menu as what it is,
+  and nothing has to be drawn for it.
+- **Ragdolls.** Six bodies on joints with a **cone and a twist**: without
+  limits the solver is not wrong — a ball socket really is free on all three
+  axes — but the head turns all the way round and the knee folds the wrong way.
+  A ragdoll flies as one rigid body (velocity plus a shared spin about the
+  chest) and the joints do the rest. They live on a budget: the broad phase is
+  quadratic in bodies, so a pile that only grows is a game that gets slower the
+  longer it is played. Measured: eight ragdolls, 48 bodies, 0.64 ms a step
+  while everything is in the air and 0.01 ms once it has settled.
+- **Scripts.** A language of its own, `.bly`, for the gameplay layer: vectors
+  are values rather than allocations, all state lives on the host side, and the
+  previous program's heap is freed whole — so there is no garbage collector and
+  none is needed. A broken file on save costs a message, not the session: the
+  previous program keeps running.
+- **The game.** A generated world, first-person walking, breaking and placing
+  blocks — [separately, above](#the-game). Minecraft's files are not needed at
+  any point.
+- **Viewport.** OpenGL 4.6 core on bare Win32 + WGL, with a loader of its own.
+  Find an angle, press `F`, get C++ ready to paste into a scene.
 
-## Чего нет
+## What it does not
 
-Осознанно, с готовым каркасом под каждое:
+Deliberately, with the frame for each one already standing:
 
-- Теней во вьюпорте — для расстановки камеры хватает AO.
-- Рассеяния в воде: она только поглощает, поэтому тени на дне резче реальных.
-- Альфа-вырезов на листве в трассировщике — листья сплошные, как в режиме Fast.
-- Моделей мобов: `EntityModel` — просто список коробок, рядом с
-  `buildPlayerModel` встаёт любая другая.
-- Обратной кинематики: задаются углы, а не «положи ладонь сюда». IK ложится
-  поверх рига, ничего в нём не трогая.
-- Скиннинга с весами: коробка принадлежит одному суставу целиком. Для блочных
-  моделей это не приближение, а точное описание.
-- Размытия движения: каждый кадр дубля — обычный still. На двойках блок и так
-  стоит достаточно долго, чтобы глаз успел его прочитать.
-- Разбиений меньше макроблока и B-кадров: один вектор на 16×16, одна ссылка.
-  Там, где через макроблок проходит край движущегося объекта, обе половины
-  платят остатком.
-- Импорта миров: NBT, Anvil и `.schematic` не читаются, хотя `zlibInflate`
-  для этого уже есть.
-- Моделей блоков из JSON — соответствие «блок → текстуры граней» задано
-  таблицей рядом с палитрой, которая его касается (`palette::minecraftRules`).
-- Спрайтов во вьюпорте: `buildSpriteMesh` нет, поэтому частицы и парящий
-  текст видны только в трассировке. Пропы и сущности вьюпорт рисует
-  с 2026-09-02, причём сущности перемешиваются каждый кадр — позу дешевле
-  пересобрать, чем спросить, менялась ли она.
-- Объёмного рассеяния: пыль — это дискретные квады, а не среда, поэтому столб
-  света собран из искр, а не гладкий.
-- Светящихся спрайтов и пропов в списке источников: уголёк и кристалл
-  светятся, но сцену не освещают — `LightSet` строится из граней воксельного
-  мира.
-- Прозрачных пропов: у материала вокселя нет `transmission`, потому что среда
-  отслеживается по блоку, внутри которого идёт луч, а проп не блок.
-- Непрерывной проверки столкновений у тел: шаг дискретный, и тело, проходящее
-  за один шаг собственную толщину, пройдёт сквозь пол. Контроллера персонажа
-  это не касается — он идёт развёртками по осям, и `test_physics` роняет его с
-  четырёхсот блоков.
-- Неоднородной плотности: пустотелый фонарь кувыркается как сплошной кусок того
-  же силуэта. Взвешивание по вокселям заставило бы разбиение перестать сливать
-  коробки, то есть отменило бы то, ради чего оно есть.
-- Встречи персонажа с телами: `stepCharacter` видит только `World`. Ящик игрока
-  не толкнёт, и игрок ящик не сдвинет — они пока не знают друг о друге вовсе.
-- Своего тела от первого лица: посмотришь вниз — себя не увидишь. Причина
-  арифметическая, а не вкусовая: глаз на высоте 1.62, торс кончается на 1.5,
-  значит его верхняя грань в двенадцати сантиметрах под камерой и занимает всю
-  нижнюю половину кадра. Руку это решается view-моделью — воксельной рукой
-  пропом в пространстве камеры, — а тело таким трюком не спасти: оно обязано
-  быть там, где оно есть. Нужны другие пропорции, а не другой код.
-- Инерции у обзора и наклона в поворот: камера следует за мышью один в один.
-- Анимации размещения блока, отличной от анимации удара, — рука машет одинаково
-  на обе кнопки.
-- Позы для плавания: от третьего лица персонаж плывёт тем же шагающим циклом.
-  Не лень, а ограничение: `Entity` несёт рысканье и не несёт тангажа, поэтому
-  положить тело горизонтально нечем — нужен корневой сустав, а не другие числа.
-  Ноги при этом всё-таки шевелятся, потому что цикл идёт по пройденному пути, а
-  плывущий путь проходит.
-- Течения, волн и выталкивания предметов: вода действует только на персонажа.
-  Твёрдое тело, брошенное в озеро, тонет как в воздухе — `PhysicsWorld` о
-  жидкостях не знает, и это ровно то же `blockIsFluid`, только применённое в
-  другом месте.
-- Луча физгана в мире: он рисуется как цепочка отметок в плоскости экрана —
-  от спроецированного дула до спроецированной точки захвата. Вьюпорт рисует
-  блоки, сущности, спрайты и пропы, и четвёртой вещи, которой его можно
-  нагрузить, намеренно нет; со спины в виде от третьего лица дуло уходит за
-  край кадра, и луч начинается из угла экрана.
-- Копирования и удаления инструментом: физган берёт то, что уже есть, или
-  вынимает блок из мира. Дублирование — это `PhysicsWorld::add` рядом с уже
-  работающим `remove`, и теперь у него есть откуда брать модель
-  (`game/props.cpp`), так что остался только вопрос, какой клавишей.
-- Возврата поднятого блока в решётку: вынуть его физган умеет, вставить
-  обратно — нет. Обратная операция не симметрична: тело стоит под углом и в
-  общем случае ни в какую ячейку не попадает, поэтому «поставить назад» — это
-  выбор ячейки и округление поворота, то есть решение, а не откат.
-- Категорий и страниц в меню спавна: семь плиток помещаются в одну сетку.
-  Второй ряд вкладок стоит писать тогда, когда плиток станет столько, что
-  среди них придётся искать.
+- Shadows in the viewport — AO is enough for placing a camera.
+- Scattering in water: it only absorbs, so shadows on the bottom are sharper
+  than real ones.
+- Alpha cuts on foliage in the tracer — leaves are solid, as in Fast mode.
+- Mob models: `EntityModel` is just a list of boxes, and any other one stands
+  beside `buildPlayerModel`.
+- Inverse kinematics: you give angles, not "put the hand here". IK sits on top
+  of a rig without touching it.
+- Weighted skinning: a box belongs to one joint entirely. For blocky models
+  that is not an approximation, it is an exact description.
+- Motion blur: every frame of a take is an ordinary still. On twos a block
+  stands still long enough for the eye to read it anyway.
+- Sub-macroblock partitions and B-frames: one vector per 16×16, one reference.
+  Where the edge of a moving object runs through a macroblock, both halves pay
+  in residual.
+- Importing worlds: NBT, Anvil and `.schematic` are not read, although
+  `zlibInflate` is already here for it.
+- Block models from JSON — the block-to-face-textures mapping is a table
+  beside the palette it concerns (`palette::minecraftRules`).
+- Sprites in the viewport: there is no `buildSpriteMesh`, so particles and
+  floating text are only visible in a trace. Props and entities have been drawn
+  by the viewport since 2026-09-02, and the entities are re-flattened every
+  frame — a pose is cheaper to rebuild than to ask whether it changed.
+- Volumetric scattering: dust is discrete quads rather than a medium, so a
+  shaft of light is made of sparks rather than being smooth.
+- Glowing sprites and props in the light list: an ember and a crystal glow but
+  do not light the scene — `LightSet` is built from the faces of the voxel
+  world.
+- Transparent props: a voxel material has no `transmission`, because the medium
+  is tracked by the block a ray is inside, and a prop is not a block.
+- Continuous collision detection for bodies: the step is discrete, and a body
+  crossing its own thickness in one step will pass through the floor. This does
+  not apply to the character controller — it moves by axis sweeps, and
+  `test_physics` drops it four hundred blocks.
+- Non-uniform density: a hollow lantern tumbles like a solid piece of the same
+  silhouette. Weighting per voxel would force the decomposition to stop merging
+  boxes, which is the thing it exists to do.
+- The character meeting bodies: `stepCharacter` sees only the `World`. A crate
+  will not push the player and the player will not move a crate — for now they
+  do not know about each other at all.
+- Your own body in first person: look down and you will not see yourself. The
+  reason is arithmetic rather than taste: the eye is at 1.62 and the torso ends
+  at 1.5, so its top face is twelve centimetres below the camera and fills the
+  lower half of the frame. The hand is answered with a view model — a voxel arm
+  as a prop in camera space — and a body cannot be saved by that trick: it has
+  to be where it is. That needs different proportions, not different code.
+- Inertia on the look, or leaning into a turn: the camera follows the mouse one
+  to one.
+- A placement animation distinct from the strike: the hand swings the same way
+  on both buttons.
+- A swimming pose: in third person the character swims with the same walk
+  cycle. Not laziness but a limit — `Entity` carries yaw and not pitch, so
+  there is nothing to lay the body flat with; that needs a root joint, not
+  different numbers. The legs do still move, because the cycle runs on distance
+  covered, and a swimmer covers distance.
+- Currents, waves and buoyancy for objects: water acts only on the character.
+  A rigid body thrown into a lake sinks as though through air — `PhysicsWorld`
+  knows nothing about fluids, and it is the same `blockIsFluid` applied
+  somewhere else.
+- The physgun beam in the world: it is drawn as a chain of marks in screen
+  space, from the projected muzzle to the projected grip point. The viewport
+  draws blocks, entities, sprites and props, and there is deliberately no fifth
+  thing to load it with; from behind in third person the muzzle leaves the
+  frame and the beam starts from a corner of the screen.
+- Copying and deleting with the tool: the physgun takes what already exists, or
+  lifts a block out of the world. Duplication is `PhysicsWorld::add` beside the
+  `remove` that already works, and it now has somewhere to take a model from
+  (`game/props.cpp`), so all that is left is which key.
+- Putting a lifted block back on the lattice: taking it out works, putting it
+  back does not. The inverse is not symmetric — the body stands at an arbitrary
+  angle and in general lands in no cell at all, so "put it back" is choosing a
+  cell plus rounding a rotation, which is a decision rather than an undo.
+- Categories and pages in the spawn menu: seven tiles fit in one grid. A second
+  row of tabs is worth writing when there are so many tiles that you have to
+  search among them.
 
 ---
 
-## Сцены
+## Scenes
 
-| Сцена | Что показывает |
+| Scene | What it shows |
 |---|---|
-| `diorama` | Всё сразу: генерация, лес из трёх пород, руина, персонаж, DOF, постобработка |
-| `viewport` | Интерактивный облёт. `cast` — персонажи, `snapshot <png>` — кадр в файл, `trace` — он же трассировщиком |
-| `textured_island` | Остров с настоящими текстурами Minecraft |
-| `island_pt` | Тот же остров плоской палитрой — видно, что даёт текстурирование |
-| `first_world` | Он же прямым рендером — видно, что даёт GI |
-| `characters` | Пять персонажей, разные скины и позы |
-| `duo` | Двое крупным планом на студийном фоне: локти, колени, поза с рукой у головы. `inspect` — тот же кадр сбоку, для проверки поз |
-| `portrait` | Персонажный арт: cel-шейдинг, риг глаз через override, поза с согнутой рукой на плоском фоне. `plain` — тот же кадр без cel |
-| `charm` | Портрет длинным объективом: руки сложены, силуэт из коробок, которые не сливаются. `plain` / `inspect` / `eyes` |
-| `lowangle` | Ракурс с пола: широкий угол снизу, наклон камеры, cel. `plain` — тот же кадр без cel |
-| `eyes` | Три головы крупным планом: глаза найдены, закрашены и построены заново на своих суставах. Взгляд влево, прямо, вправо |
-| `styles` | Один остров в пяти стилях: простой, реалистичный, plastic, cel, pixelated. Аргументом — только один из них |
-| `rigging` | Три фигуры: покой, сгиб в поясе, полный риг. Плюс крупный план лица и составная лампа |
-| `campfire` | Ночной лес, сидячая поза, костёр из текстур игры. `inspect` — дневной свет для проверки геометрии |
-| `strike` | Замах киркой в шахте: локоть, проп в руке, cel. `view` — тот же кадр во вьюпорте |
-| `sprites` | Зал с шахтами света: пыль, угли над лавой, парящий текст. `bare` — без игровых ассетов |
-| `props` | Предметы из игры на скамье и свои пропы вокруг: бочка, фонарь, кристаллы. `bare` — только свои |
-| `cornell` | Воксельный Cornell box — проверка транспорта света |
-| `turntable` | Первая анимация: персонаж на крутящейся платформе. Камера — формула, поза — трек, на двойках |
-| `sway` | Перенос веса с ноги на ногу. Родительство делает это одной синусоидой, а не десятью ключами |
-| `meet` | Двое: взмах, потом рукопожатие. Ведут внутренние руки, цветок в свободном кулаке едет с предплечьем. `inspect` — ключевые позы, `ones` — без двоек, `plain` — без cel |
-| `film` | «Последний свет»: немой фильм на пять минут в четырёх декорациях, 33 шота. `draft` / `probe` / `only=<шот>` / `time=<шот>` / `gpu` / `assemble` |
-| `cast` | Четыре скина фильма: контактные листы и те же персонажи в студии. `back` — со спины |
-| `spike` | Проба песочницы: стопка, груз на верёвке, доска на петле, сварная пара — плюс замер перемешивания по чанкам. `draft` / `bench` |
-| `sandbox` | Та же сцена, но построенная скриптом `scenes/scripts/demo.bly`, а не C++. `draft` / `check` / `script=<файл>` |
-| `live` | Она же в окне: физика идёт, скрипт перечитывается при сохранении. `script=<файл>` / `settle=` / `frames=` / `snapshot <png>` |
-| `hello` | Round-trip своего PNG-кодека |
-| `test_*` | Наборы тестов, см. [docs/testing.md](docs/testing.md) |
+| `diorama` | Everything at once: generation, a forest of three species, a ruin, a character, DOF, post |
+| `viewport` | Interactive fly-around. `cast` for characters, `snapshot <png>` for a frame to a file, `trace` for the same through the tracer |
+| `textured_island` | An island with real Minecraft textures |
+| `island_pt` | The same island in a flat palette — what texturing buys |
+| `first_world` | The same again with the direct renderer — what GI buys |
+| `characters` | Five characters, different skins and poses |
+| `duo` | Two in close up on a studio backdrop: elbows, knees, a hand by the head. `inspect` for the same frame from the side, to check the poses |
+| `portrait` | Character art: cel, the eye rig through an override, a bent arm on a flat backdrop. `plain` for the same frame without cel |
+| `charm` | A portrait on a long lens: hands together, a silhouette of boxes that do not merge. `plain` / `inspect` / `eyes` |
+| `lowangle` | From the floor: wide angle from below, a tilted camera, cel. `plain` for the same without cel |
+| `eyes` | Three heads in close up: eyes found, painted out and rebuilt on joints of their own. Looking left, ahead and right |
+| `styles` | One island in five styles: flat, realistic, plastic, cel, pixelated. Name one as an argument for just that one |
+| `rigging` | Three figures: rest, a fold at the waist, the full rig. Plus a close-up of a face and a compound lamp |
+| `campfire` | A night forest, a sitting pose, a fire built from the game's textures. `inspect` for daylight, to check the geometry |
+| `strike` | A swing with a pickaxe in a mine: the elbow, the prop in hand, cel. `view` for the same frame in the viewport |
+| `sprites` | A hall with shafts of light: dust, embers over lava, floating text. `bare` for no game assets |
+| `props` | Items from the game on a bench and props of our own around it: a barrel, a lantern, crystals. `bare` for ours alone |
+| `cornell` | A voxel Cornell box — a check on light transport |
+| `turntable` | The first animation: a character on a turning platform. Camera by formula, pose by track, on twos |
+| `sway` | Weight shifting from one foot to the other. Parenting makes this one sine wave rather than ten keys |
+| `meet` | Two of them: a wave, then a handshake. The inner arms lead, and a flower in the free fist rides with the forearm. `inspect` for the key poses, `ones` for no twos, `plain` for no cel |
+| `film` | "Last Light": a five-minute silent film in four sets, 33 shots. `draft` / `probe` / `only=<shot>` / `time=<shot>` / `gpu` / `assemble` |
+| `cast` | The film's four skins: contact sheets and the same characters in a studio. `back` for from behind |
+| `spike` | The physics spike: a stack, a weight on a rope, a plank on a hinge, a welded pair — plus a measurement of chunk re-meshing. `draft` / `bench` |
+| `sandbox` | The same scene, built by the script `scenes/scripts/demo.bly` rather than by C++. `draft` / `check` / `script=<file>` |
+| `live` | The same again in a window: physics runs, the script is re-read on save. `script=<file>` / `settle=` / `frames=` / `snapshot <png>` |
+| `hello` | A round trip through our own PNG codec |
+| `test_*` | Test suites, see [docs/testing.md](docs/testing.md) |
 
-Многие сцены принимают `draft` — уменьшенный быстрый прогон для подбора света.
+Many scenes accept `draft` — a smaller, faster run for tuning the light.
+
+---
+
+## Licence
+
+MIT — [LICENSE](LICENSE). Do what you like, keep the copyright notice, no
+warranty.
+
+The engine is not affiliated with Mojang Studios or Microsoft; "Minecraft" is
+their trademark. There are no game assets here and none are required: block
+textures are built in code, characters are drawn in code, the font is its own.
+What the engine can do is **read** an installation you already have, and some
+of the frames in the [gallery](docs/gallery.md) were made that way; they are
+marked, and the artwork in them belongs to its owners.

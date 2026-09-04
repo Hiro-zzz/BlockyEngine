@@ -1,6 +1,6 @@
 # API: engine/rig и engine/entity/rigging
 
-[← README](../README.md) · [core](api-core.md) · [world](api-world.md) · [scene и render](api-render.md) · [gpu](api-gpu.md) · [assets и entity](api-assets.md) · [sprite](api-sprite.md) · [prop](api-prop.md) · [rig](api-rig.md) · [anim](api-anim.md) · [physics](api-physics.md) · [script](api-script.md) · [video](api-video.md)
+[← README](../README.ru.md) · [core](api-core.md) · [world](api-world.md) · [scene и render](api-render.md) · [gpu](api-gpu.md) · [assets и entity](api-assets.md) · [sprite](api-sprite.md) · [prop](api-prop.md) · [rig](api-rig.md) · [anim](api-anim.md) · [physics](api-physics.md) · [script](api-script.md) · [video](api-video.md)
 
 Скелет с суставами и инструменты, которые режут модель на более мелкие части.
 

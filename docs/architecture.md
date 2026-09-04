@@ -1,6 +1,6 @@
 # Архитектура
 
-[← README](../README.md)
+[← README](../README.ru.md)
 
 ## Слои
 

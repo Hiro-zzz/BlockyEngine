@@ -1,6 +1,6 @@
 # Вьюпорт
 
-[← README](../README.md)
+[← README](../README.ru.md)
 
 OpenGL 4.6 core на голом Win32 + WGL, со своим загрузчиком функций.
 

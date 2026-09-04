@@ -1,6 +1,6 @@
 # API: engine/video
 
-[← README](../README.md) · [core](api-core.md) · [world](api-world.md) · [scene и render](api-render.md) · [gpu](api-gpu.md) · [assets и entity](api-assets.md) · [sprite](api-sprite.md) · [prop](api-prop.md) · [rig](api-rig.md) · [anim](api-anim.md) · [physics](api-physics.md) · [script](api-script.md) · [video](api-video.md)
+[← README](../README.ru.md) · [core](api-core.md) · [world](api-world.md) · [scene и render](api-render.md) · [gpu](api-gpu.md) · [assets и entity](api-assets.md) · [sprite](api-sprite.md) · [prop](api-prop.md) · [rig](api-rig.md) · [anim](api-anim.md) · [physics](api-physics.md) · [script](api-script.md) · [video](api-video.md)
 
 Свой H.264 и свой MP4. Отказ от GLFW когда-то казался принципиальным; отказ от
 чужого видеокодека после собственного PNG — просто последовательность.
