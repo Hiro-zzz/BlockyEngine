@@ -1,6 +1,6 @@
 # BlockyEngine
 
-[по-русски](README.ru.md) · [Install](docs/install.md) · [Gallery](docs/gallery.md) · [Documentation](#documentation)
+[по-русски](README.ru.md) · [Install](docs/install.md) · [Gallery](docs/gallery.md) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 
 **Windows 10/11, x64.** Linux is planned and not here yet; `docs/install.md`
 says [what stands in the way](docs/install.md#linux) rather than only that it
@@ -647,6 +647,17 @@ Deliberately, with the frame for each one already standing:
 | `test_*` | Test suites, see [docs/testing.md](docs/testing.md) |
 
 Many scenes accept `draft` — a smaller, faster run for tuning the light.
+
+---
+
+## Contributing
+
+Pull requests are welcome, and [CONTRIBUTING.md](CONTRIBUTING.md) says which
+ones are not, so nobody spends an evening on something that was never going to
+land. Two things are worth knowing before reading the rest: **no third-party
+library will be accepted**, in any of the shapes one comes in, because writing
+them is what this project is; and **AI is welcome, while responsibility is
+not transferable** — if you cannot defend a line under review, do not submit it.
 
 ---
 
