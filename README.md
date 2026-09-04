@@ -1,6 +1,10 @@
 # BlockyEngine
 
-[по-русски](README.ru.md) · [Gallery](docs/gallery.md) · [Documentation](#documentation)
+[по-русски](README.ru.md) · [Install](docs/install.md) · [Gallery](docs/gallery.md) · [Documentation](#documentation)
+
+**Windows 10/11, x64.** Linux is planned and not here yet; `docs/install.md`
+says [what stands in the way](docs/install.md#linux) rather than only that it
+is coming.
 
 ![diorama](docs/gallery/diorama.png)
 
@@ -84,6 +88,7 @@ both. Translating the rest is on the list.
 | [Conventions](docs/conventions.md) | Units, axes, colour space, signs of rotation, time |
 | [Writing scenes](docs/authoring.md) | The working loop and recipes: modelling, generation, light, post, takes |
 | [Viewport](docs/viewport.md) | Interactive preview, controls, snapshot mode |
+| [Installing](docs/install.md) | What to install, how to build, and what to do when it will not |
 | [Tests](docs/testing.md) | What is covered, and how |
 | [Gallery](docs/gallery.md) | Frames, and what each one shows |
 
@@ -110,8 +115,12 @@ both. Translating the rest is on the list.
 ## Building
 
 The compiler, CMake and Ninja live inside the Visual Studio Build Tools and are
-**not on PATH**. `build.cmd` brings the environment up through `vcvars64.bat`
-and does the rest itself — there is no need to call `cmake` directly.
+**not on PATH**. `build.cmd` finds the installation itself — through `vswhere`,
+or `BLOCKY_VSROOT` if you would rather say — brings the x64 environment up and
+does the rest; there is no need to call `cmake` directly.
+
+Step by step, including which components to tick and what the errors mean:
+[docs/install.md](docs/install.md).
 
 | Command | What it does |
 |---|---|
@@ -128,9 +137,11 @@ directory exists to mark: there, every `.cpp` is part of one executable; in
 `build.cmd` passes no arguments to a scene. Run the executable directly if you
 need them: `build\RelWithDebInfo\scenes\scene_diorama.exe draft`.
 
-**Needs:** MSVC 14.5+ (C++20), the Windows SDK. Minecraft's game files are
-**not required** — without them the scenes render with a flat palette and the
-game generates its own textures.
+**Needs:** MSVC 14.5+ (C++20), the Windows SDK, and the "C++ CMake tools for
+Windows" component, which is where CMake and Ninja come from. Nothing else —
+the engine has no dependencies to fetch. Minecraft's game files are **not
+required**: without them the scenes render with a flat palette and the game
+generates its own textures.
 
 > The project path here contains a Cyrillic `С`. MSVC, CMake and Ninja digest
 > it; the narrow CRT functions do not, which is why all file I/O goes through
