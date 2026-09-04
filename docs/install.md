@@ -37,9 +37,11 @@ If you would rather install as little as possible, three components are enough:
 Nothing else. No CMake to install separately, no Ninja, no package manager, no
 dependencies to fetch — the engine has none.
 
-**A machine that was verified against**, for reference rather than as a
+**What this was verified against**, for reference rather than as a
 requirement: MSVC 14.50.35717, Windows SDK 10.0.26100, the bundled CMake 4.2.3
-and Ninja 1.12.1, Windows 11.
+and Ninja 1.12.1, Windows 11 build 26200. The whole machine, including the
+graphics card every timing in the repository was measured on, is in the
+[README](../README.md#reference-hardware).
 
 ---
 

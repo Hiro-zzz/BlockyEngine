@@ -150,6 +150,34 @@ generates its own textures.
 
 ---
 
+## Reference hardware
+
+Every timing quoted anywhere in this repository was measured on one machine,
+and it is a laptop:
+
+| | |
+|---|---|
+| CPU | Intel Core i7-13620H — 10 cores, 16 threads, 2.4 GHz base |
+| RAM | 16 GB, 5600 MT/s |
+| GPU | NVIDIA GeForce RTX 4050 Laptop, 6 GB, driver 596.36, OpenGL 4.6 |
+| | Intel UHD Graphics alongside it — switchable, and the discrete card is the one to be on |
+| Storage | NVMe SSD |
+| OS | Windows 11, build 26200 |
+| Toolchain | MSVC 14.50.35717, Windows SDK 10.0.26100, CMake 4.2.3, Ninja 1.12.1 |
+
+**It throttles, and that matters more than the model numbers.** The same
+single-threaded work measured between 3.8 and 9.8 seconds on this machine
+depending only on how warm it already was — a factor of about three, with
+nothing else changed. So every number here is a **ratio measured inside one
+run**, never a stopwatch reading to be compared against yours, and anything
+sensitive to it says so where it is quoted.
+
+This is not a requirement. The CPU renderer needs nothing but a compiler, and
+the viewport needs OpenGL 4.6; see [docs/install.md](docs/install.md#the-graphics-card).
+It is here so that "3.4 seconds against 68" means something.
+
+---
+
 ## Module map
 
 ```
