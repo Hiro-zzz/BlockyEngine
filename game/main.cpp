@@ -48,6 +48,9 @@
 #include "game/menu.hpp"
 #include "game/avatar.hpp"
 #include "game/physgun.hpp"
+#include "game/props.hpp"
+#include "game/spawn.hpp"
+#include "game/spawnmenu.hpp"
 #include "game/player.hpp"
 #include "game/terrain.hpp"
 #include "game/vitals.hpp"
@@ -108,6 +111,18 @@ int main(int argc, char** argv) {
     // past it. Same argument as `swing` -- an interface checked from a build
     // script has to be reachable from a build script.
     bool holdMenu = false;
+
+    // Opens the shelf. The same argument as `menu`: a snapshot has nobody to
+    // press Q, so an interface that can only be reached by hand cannot be
+    // checked from a build script at all.
+    bool openSpawnMenu = false;
+
+    // Two more of the same kind. `props` puts one of everything on the ground
+    // in front of the camera; `lift` takes the tool to a block and picks it
+    // up. Both exist because a snapshot has no mouse, and a feature that can
+    // only be reached with one is a feature no build script ever sees.
+    bool propsInSnapshot = false;
+    bool liftInSnapshot = false;
     game::Screen menuScreen = game::Screen::Title;
     game::Look startLook = game::Look::Vivid;
 
@@ -135,6 +150,14 @@ int main(int argc, char** argv) {
         else if (std::strncmp(argv[i], "map=", 4) == 0) {
             startMap = game::mapFromName(argv[i] + 4);
             skipMenu = true;
+        }
+        else if (std::strcmp(argv[i], "spawn") == 0) openSpawnMenu = true;
+        else if (std::strcmp(argv[i], "props") == 0) { propsInSnapshot = true; walkInSnapshot = false; }
+        else if (std::strcmp(argv[i], "lift") == 0) {
+            liftInSnapshot = true;
+            startWithPhysgun = true;
+            walkInSnapshot = false;
+            startPitch = -38.0f;   // down at the floor, where the blocks are
         }
         else if (std::strcmp(argv[i], "menu") == 0) { skipMenu = false; holdMenu = true; }
         else if (std::strncmp(argv[i], "menu=", 5) == 0) {
@@ -220,6 +243,24 @@ int main(int argc, char** argv) {
     // Oldest first: whichever has been lying there longest is the one nobody
     // is looking at.
     const size_t kRagdollBudget = 8;
+
+    // What there is to play with, and what has been taken out of it.
+    //
+    // The catalogue is built once and never resized after that, which is not
+    // tidiness: every body spawned from it holds a bare pointer to one of its
+    // colliders. Same rule as the ragdolls' deque, arrived at the same way.
+    const std::vector<game::PropKind> propCatalogue = game::buildPropCatalogue();
+    game::PropYard yard;
+    yard.open(&propCatalogue);
+
+    // Props are cheaper than ragdolls -- one body each rather than six -- so
+    // the budget is higher, but it exists for the same reason: the broad
+    // phase is quadratic, and a pile that only grows is a game that gets
+    // slower the longer it is played.
+    const size_t kPropBudget = 48;
+
+    game::SpawnMenu spawnMenu;
+    spawnMenu.open = openSpawnMenu;
     game::Physgun physgun;
 
     // The tool as voxels, built once. Held here rather than inside `Physgun`
@@ -275,6 +316,7 @@ int main(int argc, char** argv) {
         // handles, which are indices, would name whatever took their slots.
         physics.clear();
         ragdolls.clear();
+        yard.clear();
         sandbox.spawned.clear();
         game::releasePhysgun(physgun);
 
@@ -479,6 +521,16 @@ int main(int argc, char** argv) {
             }
         }
 
+        // Everything spawned: crates, barrels, and blocks that were lifted
+        // out of the lattice and are furniture now.
+        //
+        // Asked to forget its dead first, and not as a precaution: a slot goes
+        // straight back into circulation, so an entry that outlived its body
+        // would draw a crate over whoever was spawned into its place. Same
+        // rule the physgun follows about its grip.
+        yard.forgetDead(physics);
+        yard.draw(props, physics);
+
         // Ragdolls last, and always: they are props whatever the camera is
         // doing, because they are not the player and the view has no opinion
         // about them.
@@ -565,7 +617,7 @@ int main(int argc, char** argv) {
             // Whoever still has the menu open has the pointer. Setting this
             // unconditionally would hand it back on the frame Resume closes
             // the menu, and the game would run with a loose cursor.
-            freeCursor = menu.open;
+            freeCursor = menu.open || spawnMenu.open;
             if (menu.open) {
                 scene.camera = playing ? scene.camera
                                        : game::menuCamera(menu, scene.world,
@@ -574,7 +626,45 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (frame.input && !menu.open) {
+        // The shelf. Deliberately *before* the pause menu's Escape and outside
+        // the block that stops when it is open, because unlike the pause menu
+        // this one does not stop the world -- the fixed steps below keep
+        // running, so what you spawn falls while you are still looking at the
+        // grid. All it takes is the pointer.
+        if (frame.input && !menu.open && spawnMenu.open) {
+            const game::SpawnRequest request =
+                game::updateSpawnMenu(spawnMenu, *frame.input, propCatalogue,
+                                      frame.input->width(), frame.input->height(), dt);
+
+            if (frame.input->keyPressed(key::Escape) || frame.input->keyPressed(key::Q)) {
+                spawnMenu.open = false;
+                freeCursor = false;
+            } else if (request.made) {
+                // In front of the eye and a little out, so it lands where the
+                // player is looking rather than in their face. Dropped rather
+                // than thrown: a thing that arrives moving is a thing you have
+                // to chase.
+                const Vec3 forward = player.body.forward();
+                const Vec3 at = player.body.eye(player.settings) + forward * 3.2f;
+
+                if (request.tile == game::ragdollTile(propCatalogue)) {
+                    if (avatar.ready()) {
+                        ragdolls.emplace_back();
+                        if (game::spawnRagdoll(ragdolls.back(), physics, avatar, at,
+                                               player.body.yawDegrees + 180.0f, forward)) {
+                            trimRagdolls();
+                        } else {
+                            ragdolls.pop_back();
+                        }
+                    }
+                } else if (request.tile >= 0) {
+                    yard.spawn(physics, size_t(request.tile), at);
+                    yard.trim(physics, kPropBudget, physgun.held);
+                }
+            }
+        }
+
+        if (frame.input && !menu.open && !spawnMenu.open) {
             // Escape goes back to the menu rather than closing the window --
             // which is why the viewport was asked to leave the key alone.
             if (frame.input->keyPressed(key::Escape)) {
@@ -592,22 +682,20 @@ int main(int argc, char** argv) {
             }
             if (frame.input->keyPressed(key::F1)) hud.showDebug = !hud.showDebug;
 
-            // A ragdoll of the player's own skin, thrown where they are
-            // looking. The sandbox verb: something that falls over, in a game
-            // whose whole point is watching things fall over.
-            if (frame.input->keyPressed(key::G) && avatar.ready()) {
-                const Vec3 forward = player.body.forward();
-                const Vec3 at = player.body.eye(player.settings) + forward * 2.4f;
+            // The shelf. Ragdolls used to be a key of their own, which was
+            // the same mistake the physgun made before it became a hotbar
+            // slot: one thing you can spawn is a key, and two are a menu that
+            // was never written. Now there is one way in and it has room.
+            if (frame.input->keyPressed(key::Q)) {
+                spawnMenu.open = !spawnMenu.open;
+                spawnMenu.hovered = -1;
+                freeCursor = spawnMenu.open;
 
-                ragdolls.emplace_back();
-                if (game::spawnRagdoll(ragdolls.back(), physics, avatar, at,
-                                       player.body.yawDegrees + 180.0f, forward)) {
-                    trimRagdolls();
-                    hud.toast = "RAGDOLL";
-                    hud.toastSeconds = 1.0f;
-                } else {
-                    ragdolls.pop_back();
-                }
+                // Let go on the way in. The menu takes the pointer, so the aim
+                // stops moving while the servo keeps running, and what was
+                // held would hang in the air until the menu closed.
+                if (spawnMenu.open) game::releasePhysgun(physgun);
+                return true;
             }
 
             // Unfreezing is the physgun's, but it is not about what is in the
@@ -630,7 +718,7 @@ int main(int argc, char** argv) {
         }
         if (hud.toastSeconds > 0.0f) hud.toastSeconds -= dt;
 
-        if (frame.input) {
+        if (frame.input && !spawnMenu.open) {
             // The tool is out when the tool is in the hand, and that is the
             // whole binding. A key that toggled it was invisible -- nothing
             // on the screen said whether it was pressed -- and it made a tool
@@ -646,8 +734,17 @@ int main(int argc, char** argv) {
             // The tool reads the mouse before anything else can: the eye and
             // the true look direction rather than the animated camera's, for
             // the same reason `updateReach` uses them.
-            game::aimPhysgun(physgun, scene.world, physics, *frame.input,
-                             player.body.eye(player.settings), player.body.forward());
+            game::PhysgunReach reach;
+            reach.world = &scene.world;
+            reach.physics = &physics;
+            reach.yard = &yard;
+            reach.textures = scene.blockTextures;
+            game::aimPhysgun(physgun, reach, *frame.input, player.body.eye(player.settings),
+                             player.body.forward());
+
+            // A lifted block is one more thing in the world, and the budget
+            // covers it like any other.
+            yard.trim(physics, kPropBudget, physgun.held);
 
             // Number keys and the wheel pick what is in the hand -- tool or
             // block, one row, no separate binding for the tool. The wheel is
@@ -684,12 +781,20 @@ int main(int argc, char** argv) {
         accumulator += double(dt);
         int steps = 0;
         while (accumulator >= double(kStep) && steps < 8) {
-            if (frame.input) {
+            if (frame.input && !spawnMenu.open) {
                 // Whether the run key means anything is not a question about
                 // input, so it is answered above the binding and passed down.
                 const bool mayRun =
                     game::maySprint(vitals, player.body, frame.input->keyDown(key::Shift));
                 game::stepPlayer(player, scene.world, *frame.input, mayRun, kStep);
+            } else if (frame.input) {
+                // The shelf is open. It does not stop the world -- what you
+                // spawn has to be able to fall while you are still looking at
+                // the grid -- but the keys belong to it, so the character is
+                // stepped with no wish at all rather than left reading a W
+                // that is not meant for walking.
+                stepCharacter(player.body, scene.world, player.settings, Vec3{0.0f}, false, false,
+                              kStep);
             } else {
                 // A snapshot has nobody at the keyboard, so it walks forward
                 // on its own. Without this the only thing a snapshot can
@@ -717,7 +822,14 @@ int main(int argc, char** argv) {
             ++steps;
         }
 
-        if (frame.input && !physgun.equipped) {
+        if (frame.input && spawnMenu.open) {
+            // The click that chose a tile must not also break whatever the
+            // crosshair happened to be over. Same rule the tool follows: one
+            // thing owns the mouse buttons at a time.
+            player.looking = false;
+            player.edited = false;
+            player.acted = false;
+        } else if (frame.input && !physgun.equipped) {
             game::updateReach(player, scene.world, *frame.input, dt);
 
             // A swing per strike, including the ones that hit nothing. The
@@ -759,12 +871,46 @@ int main(int argc, char** argv) {
             std::printf("[game] dropped %zu ragdolls, %d bodies in the world\n",
                         ragdolls.size(), physics.liveBodyCount());
             ragdollsInSnapshot = 0;
+        } else if (propsInSnapshot) {
+            // One of each, spread along the line of sight so they land beside
+            // one another instead of inside one another.
+            const Vec3 forward = player.body.forward();
+            const Vec3 right = normalize(cross(forward, Vec3{0.0f, 1.0f, 0.0f}));
+            const Vec3 eye = player.body.eye(player.settings);
+            for (size_t i = 0; i < propCatalogue.size(); ++i) {
+                const float offset = (float(i) - float(propCatalogue.size() - 1) * 0.5f) * 1.6f;
+                yard.spawn(physics, i, eye + forward * 5.0f + right * offset + Vec3{0.0f, 1.2f, 0.0f});
+            }
+            std::printf("[game] spawned %zu props, %d bodies in the world\n", yard.count(),
+                        physics.liveBodyCount());
+            propsInSnapshot = false;
         } else if (startWithPhysgun && physgun.equipped && !physgun.holding()) {
             // Retried every frame rather than done once: there may be nothing
             // in front of the camera yet on the frame the tool comes out, and
             // whatever is there is probably still falling.
-            game::grabPhysgun(physgun, scene.world, physics, player.body.eye(player.settings),
-                              player.body.forward());
+            game::PhysgunReach reach;
+            reach.world = &scene.world;
+            reach.physics = &physics;
+            reach.yard = &yard;
+            reach.textures = scene.blockTextures;
+            const uint64_t before = scene.world.blockCount();
+            if (game::grabPhysgun(physgun, reach, player.body.eye(player.settings),
+                                  player.body.forward()) &&
+                liftInSnapshot) {
+                std::printf("[game] lifted a block: world went from %llu to %llu, %d bodies\n",
+                            (unsigned long long)before, (unsigned long long)scene.world.blockCount(),
+                            physics.liveBodyCount());
+
+                // Look back up and pull it in. Held where it was taken from, a
+                // lifted block sits in its own hole and photographs exactly
+                // like a block nobody touched -- so the shot has to move it
+                // before it shows anything. Which is the other half of the
+                // demonstration: the servo carries it there, it does not
+                // teleport.
+                player.body.pitchDegrees = 2.0f;
+                physgun.distance = 3.0f;
+                liftInSnapshot = false;
+            }
         } else if (swingInSnapshot && !animator.swinging) {
             // A snapshot has no mouse to click with, so it swings on its own.
             // Same reason it walks on its own: an animation photographed at
@@ -860,9 +1006,15 @@ int main(int argc, char** argv) {
         // press, because what the buttons do changes with what the tool is
         // doing and not only with which slot is chosen.
         if (!physgun.equipped) {
-            hud.hint = "LMB BREAK   RMB PLACE   G RAGDOLL";
+            hud.hint = "LMB BREAK   RMB PLACE   Q SPAWN";
         } else if (physgun.holding()) {
             hud.hint = "WHEEL PUSH/PULL   E+MOUSE TURN   RMB FREEZE   RELEASE TO DROP";
+        } else if (physgun.aimingAtBlock) {
+            // Named differently on purpose. Lifting takes the block out of the
+            // world and does not put it back, and a trigger that quietly
+            // dismantles a wall should have said which of the two it was about
+            // to do.
+            hud.hint = "PHYSGUN   LMB LIFT THIS BLOCK   RMB FREEZE   R UNFREEZE ALL";
         } else {
             hud.hint = "PHYSGUN   LMB HOLD TO GRAB   RMB FREEZE   R UNFREEZE ALL";
         }
@@ -874,6 +1026,9 @@ int main(int argc, char** argv) {
             drawHud(hud, ui, player, vitals, scene.world.registry());
             game::drawPhysgun(physgun, ui, scene.camera);
         }
+        // Over the HUD, under the pause menu: the shelf is part of playing,
+        // and the pause menu is what playing stops for.
+        game::drawSpawnMenu(spawnMenu, ui, propCatalogue);
         if (menu.open) game::drawMenu(menu, ui);
     };
 
@@ -885,7 +1040,7 @@ int main(int argc, char** argv) {
             "  left click    break a block, held down to keep mining\n"
             "  right click   place the held block\n"
             "  1 - 8, wheel  choose what to place\n"
-            "  G             drop a ragdoll\n"
+            "  Q             spawn menu: props and ragdolls\n"
             "  F             physgun: hold left to carry, wheel to push and\n"
             "                pull, E and the mouse to turn, right click to\n"
             "                freeze, R to unfreeze everything\n"

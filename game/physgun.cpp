@@ -156,33 +156,67 @@ bool aimedBody(const World& world, const PhysicsWorld& physics, Vec3 eye, Vec3 a
 
 }  // namespace
 
-bool grabPhysgun(Physgun& gun, const World& world, PhysicsWorld& physics, Vec3 eye, Vec3 aim) {
-    BodyPick pick;
-    if (!aimedBody(world, physics, eye, aim, gun.settings.reach, pick)) return false;
+namespace {
 
-    RigidBody& body = physics.body(pick.body);
+// Takes hold of a body that is already in the world.
+void takeHold(Physgun& gun, PhysicsWorld& physics, int index, Vec3 at, float distance) {
+    RigidBody& body = physics.body(index);
 
     // Grabbing something frozen picks it up rather than refusing: the freeze
     // was a way of parking it, and having to unfreeze first would make the
     // tool argue with the last thing it was told.
-    physics.setFrozen(pick.body, false);
+    physics.setFrozen(index, false);
     body.wake();
 
-    gun.held = pick.body;
-    gun.gripLocal = rotate(conjugate(body.orientation), pick.position - body.position);
+    gun.held = index;
+    gun.gripLocal = rotate(conjugate(body.orientation), at - body.position);
     gun.holdOrientation = body.orientation;
-    gun.distance =
-        std::clamp(pick.distance, gun.settings.minDistance, gun.settings.maxDistance);
+    gun.distance = std::clamp(distance, gun.settings.minDistance, gun.settings.maxDistance);
+}
+
+}  // namespace
+
+bool grabPhysgun(Physgun& gun, const PhysgunReach& reach, Vec3 eye, Vec3 aim) {
+    if (!reach.valid()) return false;
+    World& world = *reach.world;
+    PhysicsWorld& physics = *reach.physics;
+
+    BodyPick pick;
+    if (aimedBody(world, physics, eye, aim, gun.settings.reach, pick)) {
+        takeHold(gun, physics, pick.body, pick.position, pick.distance);
+        return true;
+    }
+
+    // Nothing loose under the crosshair. The block itself, then -- lifted out
+    // of the lattice and stood up as a body in the same place, which is the
+    // only way a thing that has to turn can stop being a cell.
+    if (!reach.yard) return false;
+
+    RayHit hit;
+    if (!raycast(world, Ray{eye, aim}, gun.settings.reach, hit)) return false;
+    if (!world.registry().isSolid(hit.id)) return false;
+
+    const int body = reach.yard->liftBlock(physics, world, hit.block, reach.textures);
+    if (body < 0) return false;
+
+    // Held by where the ray met it, like anything else: a block taken by its
+    // top face hangs from that face rather than snapping its centre to the
+    // crosshair.
+    takeHold(gun, physics, body, hit.position, hit.t);
     return true;
 }
 
-void aimPhysgun(Physgun& gun, const World& world, PhysicsWorld& physics, const Window& window,
-                Vec3 eye, Vec3 aim) {
+void aimPhysgun(Physgun& gun, const PhysgunReach& reach, const Window& window, Vec3 eye,
+                Vec3 aim) {
     gun.aiming = false;
-    if (!gun.equipped) {
+    gun.aimingAtBlock = false;
+    if (!gun.equipped || !reach.valid()) {
         releasePhysgun(gun);
         return;
     }
+
+    World& world = *reach.world;
+    PhysicsWorld& physics = *reach.physics;
 
     // A grab that outlived what it was holding. The ragdoll budget can retire
     // a body while the physgun has hold of one of its arms, and an index is
@@ -190,7 +224,7 @@ void aimPhysgun(Physgun& gun, const World& world, PhysicsWorld& physics, const W
     if (gun.holding() && !physics.alive(gun.held)) releasePhysgun(gun);
 
     // ------------------------------------------------------------ the grab
-    if (window.mouseLeftPressed() && !gun.holding()) grabPhysgun(gun, world, physics, eye, aim);
+    if (window.mouseLeftPressed() && !gun.holding()) grabPhysgun(gun, reach, eye, aim);
 
     if (gun.holding() && !window.mouseLeftDown()) releasePhysgun(gun);
 
@@ -230,6 +264,18 @@ void aimPhysgun(Physgun& gun, const World& world, PhysicsWorld& physics, const W
     if (aimedBody(world, physics, eye, aim, gun.settings.reach, pick)) {
         gun.aiming = true;
         gun.aimPoint = pick.position;
+        return;
+    }
+
+    // A block counts as something to aim at, but says so separately: the
+    // interface offers to LIFT rather than to GRAB, because a trigger pull
+    // that quietly takes a wall apart should have announced itself first.
+    if (!reach.yard) return;
+    RayHit hit;
+    if (raycast(world, Ray{eye, aim}, gun.settings.reach, hit) && world.registry().isSolid(hit.id)) {
+        gun.aiming = true;
+        gun.aimingAtBlock = true;
+        gun.aimPoint = hit.position;
     }
 }
 

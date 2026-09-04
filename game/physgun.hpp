@@ -33,10 +33,27 @@
 // Freezing is a body state, not a tool state (`RigidBody::freeze`), which
 // means a frozen plank is still something to stack on and something the next
 // grab can pick up again. The tool only says when.
+//
+// ---------------------------------------------------------- and takes blocks
+//
+// Pointed at the world rather than at a body, the trigger lifts the block
+// itself: the cell is emptied and a body of the same size and colour stands up
+// where it was. That is not a special case bolted on -- it is what `prop/`
+// exists for. A block is a cell on a lattice and cannot turn; the moment
+// something is carried at an angle it has to stop being one, and the thing it
+// becomes is an ordinary rigid body that the rest of the tool already knows
+// how to hold.
+//
+// It is destructive to the world on purpose, and the block does not go back by
+// itself: once lifted it is furniture. That is the sandbox answer rather than
+// the survival one.
+#include "engine/assets/blocks/block_textures.hpp"
 #include "engine/physics/physics_world.hpp"
 #include "engine/prop/voxel_model.hpp"
 #include "engine/scene/camera.hpp"
 #include "engine/world/world.hpp"
+
+#include "game/spawn.hpp"
 
 namespace blocky {
 class Window;
@@ -46,6 +63,26 @@ class Overlay;
 namespace game {
 
 struct Player;
+
+// Everything the tool is allowed to reach into.
+//
+// One struct rather than four parameters, because they arrive together and
+// because the *absence* of one is a rule: a reach with no yard is a physgun
+// that cannot lift blocks, which is how a mode that should not rearrange the
+// terrain says so.
+struct PhysgunReach {
+    blocky::World* world = nullptr;
+    blocky::PhysicsWorld* physics = nullptr;
+
+    // Where a lifted block goes. Null leaves blocks in the ground.
+    PropYard* yard = nullptr;
+
+    // Used to colour a lifted block. Null falls back to the flat palette
+    // colour, like everything else that draws without game files.
+    const blocky::BlockTextureLibrary* textures = nullptr;
+
+    bool valid() const { return world && physics; }
+};
 
 // The tool itself, as voxels, plus the two points on it anybody needs.
 //
@@ -130,6 +167,12 @@ struct Physgun {
     bool  aiming = false;       // something grabbable under the crosshair
     blocky::Vec3 aimPoint{};
 
+    // Whether what the crosshair is on is a block rather than a body. Only
+    // for the interface: the hint under the hotbar says LIFT instead of GRAB,
+    // because taking a wall apart by accident should at least have been
+    // announced first.
+    bool aimingAtBlock = false;
+
     // Where the model's muzzle ended up this frame, filled in by whoever
     // placed the view model. The beam starts there rather than at a fixed
     // corner of the screen, so it swings when the hand does; false when
@@ -146,8 +189,8 @@ struct Physgun {
 // `eye` and `aim` are the character's true eye and look direction rather than
 // the animated camera's, for the same reason `updateReach` uses them: a beam
 // that wobbled with the view bob would miss what the crosshair is on.
-void aimPhysgun(Physgun& gun, const blocky::World& world, blocky::PhysicsWorld& physics,
-                const blocky::Window& window, blocky::Vec3 eye, blocky::Vec3 aim);
+void aimPhysgun(Physgun& gun, const PhysgunReach& reach, const blocky::Window& window,
+                blocky::Vec3 eye, blocky::Vec3 aim);
 
 // Takes hold of whatever is in front of the eye, with no mouse involved.
 // Returns false when there was nothing to take.
@@ -155,8 +198,7 @@ void aimPhysgun(Physgun& gun, const blocky::World& world, blocky::PhysicsWorld& 
 // The click path calls this, and so does a snapshot: an interface that can
 // only be reached with a hand on a mouse cannot be checked from a build
 // script, which is the same argument the snapshot mode itself rests on.
-bool grabPhysgun(Physgun& gun, const blocky::World& world, blocky::PhysicsWorld& physics,
-                 blocky::Vec3 eye, blocky::Vec3 aim);
+bool grabPhysgun(Physgun& gun, const PhysgunReach& reach, blocky::Vec3 eye, blocky::Vec3 aim);
 
 // One fixed step of holding. Does nothing when nothing is held.
 void stepPhysgun(Physgun& gun, blocky::PhysicsWorld& physics, blocky::Vec3 eye, blocky::Vec3 aim,
