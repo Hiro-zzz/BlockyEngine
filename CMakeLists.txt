@@ -67,3 +67,33 @@ if(GAME_SOURCES)
     list(LENGTH GAME_SOURCES game_count)
     message(STATUS "BlockyEngine: game target from ${game_count} file(s)")
 endif()
+
+# ------------------------------------------------------------------ plugins
+# Each plugins/<name>/ becomes <name>.exe, the way game/ becomes one target
+# and for the same reason: a tool has parts that know about each other. Drop a
+# directory in and it builds; there is nothing to register.
+#
+# A plugin here is a **program built on the engine**, not a library loaded
+# into it. Nothing in this project loads anything at runtime, and giving it
+# the ability to would mean a stable C ABI, a symbol registry and a version
+# story -- real machinery, for a case that is served by a second executable.
+file(GLOB PLUGIN_ENTRIES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/plugins/*")
+foreach(plugin_entry IN LISTS PLUGIN_ENTRIES)
+    if(IS_DIRECTORY "${plugin_entry}")
+        get_filename_component(plugin_name "${plugin_entry}" NAME)
+
+        file(GLOB_RECURSE plugin_sources CONFIGURE_DEPENDS
+            "${plugin_entry}/*.cpp"
+            "${plugin_entry}/*.hpp")
+
+        if(plugin_sources)
+            add_executable(${plugin_name} ${plugin_sources})
+            target_link_libraries(${plugin_name} PRIVATE blocky)
+            set_target_properties(${plugin_name} PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+            source_group(TREE "${plugin_entry}" FILES ${plugin_sources})
+
+            message(STATUS "BlockyEngine: plugin ${plugin_name}")
+        endif()
+    endif()
+endforeach()
