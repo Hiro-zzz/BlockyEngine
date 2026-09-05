@@ -88,6 +88,7 @@ both. Translating the rest is on the list.
 | [Conventions](docs/conventions.md) | Units, axes, colour space, signs of rotation, time |
 | [Writing scenes](docs/authoring.md) | The working loop and recipes: modelling, generation, light, post, takes |
 | [Viewport](docs/viewport.md) | Interactive preview, controls, snapshot mode |
+| [Editor](docs/forge.md) | forge: voxel models and pixel textures, controls, export |
 | [Installing](docs/install.md) | What to install, how to build, and what to do when it will not |
 | [Tests](docs/testing.md) | What is covered, and how |
 | [Gallery](docs/gallery.md) | Frames, and what each one shows |
@@ -208,14 +209,19 @@ engine/physics/         rigid bodies, decomposition of voxels into boxes,
                         separately, a kinematic character controller and swimmer
 engine/script/          a language of its own: lexer, parser, interpreter, core,
                         bindings to the world and to physics, live reload
+engine/edit/            the editor's documents: undo, a pixel canvas, voxel
+                        sculpting, a sprite list; export to C++ source, to a
+                        layer sheet and to a Minecraft model
 engine/video/           H.264 and MP4 -- its own container and its own codec
 engine/platform/        a window on Win32
 scenes/                 every .cpp becomes its own executable
 game/                   all of it together becomes one konstruct.exe
+plugins/<name>/         all of it together becomes one <name>.exe -- forge, so far
 ```
 
-The engine is thirty-two thousand lines across 171 files, the scenes twenty
-thousand across fifty, the game six and a half thousand across thirty-one.
+The engine is thirty-five thousand lines across 189 files, the scenes
+twenty-one and a half thousand across fifty-five, the game six and a half
+thousand across thirty-one, and the editor eighteen hundred across twelve.
 
 There is not one `#include "game/"` in the engine, and not one block name
 either: a `BlockRegistry` arrives holding air, and what goes in after that is
@@ -427,6 +433,44 @@ not a rigid body.
 
 ---
 
+## The editor
+
+```
+build\RelWithDebInfo\forge.exe
+```
+
+A third entry point, and a third shape the build knows: everything under
+`plugins/<name>/` becomes `<name>.exe`. A plugin here is a **program built on
+the engine**, not a library loaded into it -- nothing in this project loads
+anything at runtime, and giving it the ability to would mean a stable C ABI, a
+registry and a version story.
+
+Three documents in one window, `Tab` cycles them.
+
+| | |
+|---|---|
+| **Model** | A voxel grid. Left button places, `Shift` erases, right orbits. Pointing is the same `trace` that gives the game break-and-place, against a grid instead of a lattice |
+| **Canvas** | A pixel image. 16x16 is a block texture, and also the item `item::buildModel` will extrude; 64x64 is a skin, with layout guides taken from `Skin::faceRect` rather than restated beside it |
+| **Sprites** | Quads standing in the world: motes, sparks, floating text. The turn towards the camera is frozen when the sprite is placed, which is the engine's position rather than the tool's shortcut |
+
+**All three go out as C++ source**, the way scenes, maps and palettes already
+do: the model as a call to `voxelize::fromLayers`, the canvas as a call to
+`pixelart::fromRows`, the sprites as a function returning
+`std::vector<Sprite>`. A texture written that way stops being an asset file and
+becomes source -- which is what the generated block textures already are.
+
+**And `P` writes a Minecraft resource pack.** A vanilla model: `elements` of
+cuboids plus a palette texture, in an `assets/<ns>/models/...` tree. A mod and
+a resource pack read the same format, so one export serves both. The cuboids
+come from the same exact greedy merge the physics collider uses to break a
+model into boxes -- with "of the same material" in place of "solid".
+
+There is still no model format here, which is the same decision that makes maps
+code. Controls, export and what the editor does not do are in
+[docs/forge.md](docs/forge.md) (in Russian, like the rest of `docs/`).
+
+---
+
 ## What it does
 
 - **World.** Sparse storage of dense 16³ chunks; the chunk grid doubles as the
@@ -582,10 +626,12 @@ Deliberately, with the frame for each one already standing:
   `zlibInflate` is already here for it.
 - Block models from JSON — the block-to-face-textures mapping is a table
   beside the palette it concerns (`palette::minecraftRules`).
-- Sprites in the viewport: there is no `buildSpriteMesh`, so particles and
-  floating text are only visible in a trace. Props and entities have been drawn
-  by the viewport since 2026-09-02, and the entities are re-flattened every
-  frame — a pose is cheaper to rebuild than to ask whether it changed.
+- Textured sprites in the viewport: `buildSpriteMesh` arrived with the editor
+  and draws a quad as a flat fill of its tint, which is enough to see where a
+  sprite is and how big. The picture on it is still only visible in a trace.
+  Props and entities have been drawn by the viewport since 2026-09-02, and the
+  entities are re-flattened every frame — a pose is cheaper to rebuild than to
+  ask whether it changed.
 - Volumetric scattering: dust is discrete quads rather than a medium, so a
   shaft of light is made of sparks rather than being smooth.
 - Glowing sprites and props in the light list: an ember and a crystal glow but
