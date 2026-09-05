@@ -647,4 +647,67 @@ void buildPropMesh(const VoxelModel& model, PropMeshData& out) {
     }
 }
 
+void buildSpriteMesh(const SpriteSet& sprites, PropMeshData& out) {
+    out.clear();
+    if (sprites.empty()) return;
+
+    const std::vector<Sprite>& list = sprites.sprites();
+    const std::vector<SpriteSet::Flat>& flats = sprites.flats();
+
+    for (size_t i = 0; i < flats.size() && i < list.size(); ++i) {
+        const SpriteSet::Flat& flat = flats[i];
+        const Sprite& sprite = list[i];
+
+        // The quad's own plane is local z = 0, so its normal is the matrix's
+        // third column. Taken from the same matrix the tracer intersects,
+        // which is the point of `flats()` being public.
+        const Vec3 normal = normalize(transformDir(flat.toWorld, Vec3{0.0f, 0.0f, 1.0f}));
+
+        const uint32_t base = uint32_t(out.vertices.size());
+        for (int corner = 0; corner < 4; ++corner) {
+            const float x = (corner & 1) ? flat.half.x : -flat.half.x;
+            const float y = (corner & 2) ? flat.half.y : -flat.half.y;
+            const Vec3 position = transformPoint(flat.toWorld, {x, y, 0.0f});
+
+            PropVertex vertex{};
+            vertex.x = position.x;
+            vertex.y = position.y;
+            vertex.z = position.z;
+            vertex.nx = normal.x;
+            vertex.ny = normal.y;
+            vertex.nz = normal.z;
+            vertex.r = sprite.tint.x;
+            vertex.g = sprite.tint.y;
+            vertex.b = sprite.tint.z;
+            vertex.er = sprite.emission.x;
+            vertex.eg = sprite.emission.y;
+            vertex.eb = sprite.emission.z;
+            out.vertices.push_back(vertex);
+        }
+
+        // Corner order is (-,-), (+,-), (-,+), (+,+), so the two triangles
+        // are 0-1-3 and 0-3-2.
+        const uint32_t front[6] = {base, base + 1, base + 3, base, base + 3, base + 2};
+        for (uint32_t index : front) out.indices.push_back(index);
+
+        if (!sprite.doubleSided) continue;
+
+        // The back, as its own four vertices with the normal flipped rather
+        // than as a state change. Turning culling off for one pass would mean
+        // the sprite's back face shaded as though it faced away from the
+        // light, which is exactly what a double-sided quad must not do.
+        const uint32_t backBase = uint32_t(out.vertices.size());
+        for (int corner = 0; corner < 4; ++corner) {
+            PropVertex vertex = out.vertices[base + uint32_t(corner)];
+            vertex.nx = -normal.x;
+            vertex.ny = -normal.y;
+            vertex.nz = -normal.z;
+            out.vertices.push_back(vertex);
+        }
+        const uint32_t back[6] = {backBase, backBase + 3, backBase + 1,
+                                  backBase, backBase + 2, backBase + 3};
+        for (uint32_t index : back) out.indices.push_back(index);
+    }
+}
+
 } // namespace blocky

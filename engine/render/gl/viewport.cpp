@@ -594,7 +594,19 @@ int runViewport(Scene& scene, const ViewportSettings& settings) {
     // One mesh per distinct VoxelModel, built the first time it is seen and
     // then drawn once per placement. A hundred crates sharing a model cost
     // one model's geometry -- the same trade PropSet makes on the CPU side.
-    std::unordered_map<const VoxelModel*, GpuPropMesh> propMeshes;
+    // Keyed by address, remembering the stamp it meshed at -- the same
+    // arrangement `ChunkCache` has with the world, and needed for the same
+    // reason: a model that changes under a host has to be re-meshed, and
+    // nothing pushes at this map to say so.
+    struct CachedPropMesh {
+        GpuPropMesh mesh;
+        uint64_t stamp = 0;
+    };
+    std::unordered_map<const VoxelModel*, CachedPropMesh> propMeshes;
+
+    // One buffer, refilled each frame. See the draw below for why it is not
+    // cached the way the prop meshes are.
+    GpuPropMesh spriteMesh;
 
     // Entities are meshed one at a time, and re-meshed every frame.
     //
@@ -811,17 +823,41 @@ int runViewport(Scene& scene, const ViewportSettings& settings) {
             for (const PropSet::Flat& placement : scene.props->flats()) {
                 if (!placement.model) continue;
 
-                GpuPropMesh& mesh = propMeshes[placement.model];
-                if (mesh.empty()) {
+                CachedPropMesh& cached = propMeshes[placement.model];
+                const uint64_t stamp = placement.model->stamp();
+                if (cached.stamp != stamp) {
                     PropMeshData data;
                     buildPropMesh(*placement.model, data);
-                    mesh.upload(data);
-                    if (mesh.empty()) continue;   // an empty model, meshed once and skipped after
+                    cached.mesh.upload(data);
+                    cached.stamp = stamp;
                 }
+                if (cached.mesh.empty()) continue;   // a model with nothing in it
 
                 propShader.setMat4("uModel", placement.toWorld);
                 propShader.setVec3("uTint", placement.tint);
-                mesh.draw();
+                cached.mesh.draw();
+            }
+        }
+
+        if (scene.sprites && !scene.sprites->empty()) {
+            // Rebuilt every frame, unlike the props, and for a reason rather
+            // than out of laziness: a `SpriteSet` carries no stamp, and the
+            // host most likely to have sprites in a viewport is one that is
+            // placing them, so they change constantly. A few hundred quads is
+            // nothing to rebuild; giving the set a stamp is the answer on the
+            // day something has thousands and does not move them.
+            PropMeshData data;
+            buildSpriteMesh(*scene.sprites, data);
+            spriteMesh.upload(data);
+
+            if (!spriteMesh.empty()) {
+                applyEnvironment(propShader);
+                // Already in world space: `buildSpriteMesh` bakes the quad
+                // corners through the flat's own matrix, because a sprite does
+                // not move as a unit the way a prop does.
+                propShader.setMat4("uModel", Mat4::identity());
+                propShader.setVec3("uTint", Vec3{1.0f, 1.0f, 1.0f});
+                spriteMesh.draw();
             }
         }
 
@@ -973,6 +1009,7 @@ int runViewport(Scene& scene, const ViewportSettings& settings) {
 
     chunks.clear();
     propMeshes.clear();
+    spriteMesh.destroy();
     for (auto& mesh : entityMeshes) mesh.destroy();
     for (auto& entry : skinTextures) entry.second.destroy();
     blockTextures.destroy();

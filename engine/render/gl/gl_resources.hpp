@@ -10,6 +10,7 @@
 #include "engine/core/math.hpp"
 #include "engine/entity/entity.hpp"
 #include "engine/prop/voxel_model.hpp"
+#include "engine/sprite/sprite_set.hpp"
 #include "engine/render/gl/gl_loader.hpp"
 #include "engine/world/world.hpp"
 
@@ -231,6 +232,23 @@ private:
 // rule the world mesher uses, and for the same reason: an interior face can
 // never be seen and costs two triangles to prove it.
 void buildPropMesh(const VoxelModel& model, PropMeshData& out);
+
+// Sprite quads, into the same vertex format and so onto the same shader.
+//
+// Until this existed, particles and floating text were visible only in a
+// trace -- which was fine while the viewport's job was finding a camera, and
+// stopped being fine when something wanted to *place* a sprite. You cannot
+// arrange what you cannot see.
+//
+// The corners come from `SpriteSet::flats()`, not from the angles: the set
+// has already turned yaw, pitch and roll into a matrix, and turning them into
+// a second one here is the same mistake as re-posing a skeleton for the GPU.
+//
+// **Untextured only.** A sprite's tint is its colour here, and a sprite that
+// carries a texture is drawn as a flat quad of that tint rather than as its
+// picture. Doing it properly needs alpha-cut sampling and a second shader,
+// and what this is for -- seeing where a quad is and how big -- does not.
+void buildSpriteMesh(const SpriteSet& sprites, PropMeshData& out);
 
 // --------------------------------------------------------------- textures
 // One layer per (block, face), with the tint and any overlay already

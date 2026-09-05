@@ -41,6 +41,53 @@ VoxelMaterial colour(float r, float g, float b) {
     return material;
 }
 
+// --------------------------------------------------------------- staleness
+//
+// The same property `test_chunks` demands of the world: the stamp has to move
+// for **any** change to what the model would draw, and has to stay put when
+// nothing changed. A stamp that moves too often costs a re-mesh; one that
+// moves too rarely leaves the viewport drawing a model that is no longer
+// there, which is the failure that does not look like a failure.
+void testStamp() {
+    std::printf("model stamp\n");
+
+    VoxelModel model;
+    check(model.stamp() == 0, "a model that has never held anything is stamped zero");
+
+    model.resize({4, 4, 4});
+    const uint64_t sized = model.stamp();
+    check(sized != 0, "sizing it moves the stamp");
+
+    const uint16_t red = model.addMaterial(colour(1.0f, 0.0f, 0.0f));
+    const uint64_t withMaterial = model.stamp();
+    check(withMaterial != sized, "a new material moves it");
+    model.addMaterial(colour(1.0f, 0.0f, 0.0f));
+    check(model.stamp() == withMaterial, "and a folded one does not");
+
+    model.set({1, 1, 1}, red);
+    const uint64_t painted = model.stamp();
+    check(painted != withMaterial, "writing a voxel moves it");
+
+    model.set({1, 1, 1}, red);
+    check(model.stamp() == painted, "writing the value already there does not");
+    model.set({9, 9, 9}, red);
+    check(model.stamp() == painted, "and neither does a write outside the grid");
+
+    model.set({1, 1, 1}, VoxelModel::kEmpty);
+    check(model.stamp() != painted, "erasing moves it too");
+
+    const uint64_t beforeTrim = model.stamp();
+    model.set({2, 2, 2}, red);
+    model.trim();
+    check(model.stamp() != beforeTrim, "trimming moves it");
+
+    // Global rather than per model, so a cache keyed by address cannot be
+    // fooled by a replacement that happens to land there.
+    VoxelModel other;
+    other.resize({2, 2, 2});
+    check(other.stamp() != model.stamp(), "two models never hold the same stamp");
+}
+
 // ---------------------------------------------------------------- the grid
 void testModel() {
     std::printf("voxel model\n");
@@ -640,6 +687,7 @@ void testSceneIntegration() {
 
 int main() {
     testModel();
+    testStamp();
     testTraversal();
     testPlacement();
     testItem();

@@ -1,6 +1,7 @@
 #include "engine/prop/voxel_model.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <limits>
 
 namespace blocky {
@@ -38,12 +39,25 @@ bool clipToBox(Vec3 origin, Vec3 direction, Vec3 lo, Vec3 hi, float tMin, float 
 
 }  // namespace
 
+// Global and monotonic, for the reason spelled out on `stamp()`: the caches
+// that read it are keyed by address, so a counter that restarted per model
+// would let a freed model and its replacement claim a stamp they never
+// shared. Atomic because a model may be built on a worker thread even though
+// nothing edits one from two at once -- the cost is a relaxed increment on
+// operations that already touch memory.
+static std::atomic<uint64_t> gVoxelModelStamp{0};
+
+void VoxelModel::touch() {
+    stamp_ = gVoxelModelStamp.fetch_add(1, std::memory_order_relaxed) + 1;
+}
+
 void VoxelModel::clear() {
     dims_ = {0, 0, 0};
     voxels_.clear();
     palette_.assign(1, VoxelMaterial{});
     solid_ = 0;
     min_ = max_ = IVec3{0, 0, 0};
+    touch();
 }
 
 void VoxelModel::resize(IVec3 dims) {
@@ -51,6 +65,7 @@ void VoxelModel::resize(IVec3 dims) {
     voxels_.assign(size_t(dims_.x) * size_t(dims_.y) * size_t(dims_.z), kEmpty);
     solid_ = 0;
     min_ = max_ = IVec3{0, 0, 0};
+    touch();
 }
 
 void VoxelModel::set(IVec3 v, uint16_t material) {
@@ -75,6 +90,7 @@ void VoxelModel::set(IVec3 v, uint16_t material) {
         // traversal a couple of empty steps.
     }
     slot = material;
+    touch();
 }
 
 uint16_t VoxelModel::addMaterial(const VoxelMaterial& material) {
@@ -82,6 +98,7 @@ uint16_t VoxelModel::addMaterial(const VoxelMaterial& material) {
         if (nearlyEqual(palette_[i], material)) return uint16_t(i);
     }
     palette_.push_back(material);
+    touch();
     return uint16_t(palette_.size() - 1);
 }
 
@@ -106,7 +123,7 @@ void VoxelModel::trim() {
     }
 
     IVec3 size{hi.x - lo.x + 1, hi.y - lo.y + 1, hi.z - lo.z + 1};
-    if (size == dims_) { min_ = lo; max_ = hi; return; }
+    if (size == dims_) { min_ = lo; max_ = hi; return; }   // nothing moved
 
     std::vector<uint16_t> moved(size_t(size.x) * size_t(size.y) * size_t(size.z), kEmpty);
     for (int y = 0; y < size.y; ++y) {
@@ -122,6 +139,7 @@ void VoxelModel::trim() {
     voxels_.swap(moved);
     min_ = IVec3{0, 0, 0};
     max_ = IVec3{size.x - 1, size.y - 1, size.z - 1};
+    touch();
 }
 
 bool VoxelModel::trace(Vec3 origin, Vec3 direction, float tMin, float tMax, VoxelHit& hit) const {

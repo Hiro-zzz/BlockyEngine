@@ -1,76 +1,21 @@
 #include "engine/physics/collider.hpp"
 
+#include "engine/prop/voxel_boxes.hpp"
+
 #include <algorithm>
 
 namespace blocky {
-namespace {
-
-// Voxel-space box, half-open: [min, max).
-struct VoxelBox {
-    IVec3 min{};
-    IVec3 max{};
-
-    int cells() const {
-        return (max.x - min.x) * (max.y - min.y) * (max.z - min.z);
-    }
-};
-
-}  // namespace
 
 Collider buildCollider(const VoxelModel& model, float voxelSize) {
     Collider collider;
     if (model.empty() || voxelSize <= 0.0f) return collider;
 
-    IVec3 dims = model.dims();
-    std::vector<uint8_t> claimed(size_t(dims.x) * size_t(dims.y) * size_t(dims.z), 0);
-
-    auto flat = [&](int x, int y, int z) {
-        return (size_t(y) * size_t(dims.z) + size_t(z)) * size_t(dims.x) + size_t(x);
-    };
-    auto free = [&](int x, int y, int z) {
-        return model.at({x, y, z}) != VoxelModel::kEmpty && !claimed[flat(x, y, z)];
-    };
-
-    std::vector<VoxelBox> boxes;
-
-    // Grow along x, then z, then y. The order is arbitrary but must be fixed:
-    // a different order gives a different partition, and the tests compare
-    // against totals rather than against a specific set of boxes for exactly
-    // that reason.
-    for (int y = 0; y < dims.y; ++y) {
-        for (int z = 0; z < dims.z; ++z) {
-            for (int x = 0; x < dims.x; ++x) {
-                if (!free(x, y, z)) continue;
-
-                int x1 = x;
-                while (x1 + 1 < dims.x && free(x1 + 1, y, z)) ++x1;
-
-                int z1 = z;
-                while (z1 + 1 < dims.z) {
-                    bool wholeRow = true;
-                    for (int ix = x; ix <= x1 && wholeRow; ++ix) wholeRow = free(ix, y, z1 + 1);
-                    if (!wholeRow) break;
-                    ++z1;
-                }
-
-                int y1 = y;
-                while (y1 + 1 < dims.y) {
-                    bool wholeSlab = true;
-                    for (int iz = z; iz <= z1 && wholeSlab; ++iz)
-                        for (int ix = x; ix <= x1 && wholeSlab; ++ix)
-                            wholeSlab = free(ix, y1 + 1, iz);
-                    if (!wholeSlab) break;
-                    ++y1;
-                }
-
-                for (int iy = y; iy <= y1; ++iy)
-                    for (int iz = z; iz <= z1; ++iz)
-                        for (int ix = x; ix <= x1; ++ix) claimed[flat(ix, iy, iz)] = 1;
-
-                boxes.push_back({{x, y, z}, {x1 + 1, y1 + 1, z1 + 1}});
-            }
-        }
-    }
+    // The walk lives in `prop/voxel_boxes.hpp` because an exported model needs
+    // the same one with a different equivalence -- boxes of one material
+    // rather than the fewest boxes. `Solid` is this caller's rule: physics has
+    // no opinion about colour, and merging across it gives fewer boxes to
+    // test.
+    const std::vector<VoxelBox> boxes = mergeVoxelBoxes(model, BoxMerge::Solid);
 
     if (boxes.empty()) return collider;
 

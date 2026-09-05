@@ -74,7 +74,24 @@ public:
     // Cheaper: first solid voxel, without surface data.
     bool occluded(Vec3 origin, Vec3 direction, float tMin, float tMax) const;
 
+    // ------------------------------------------------------------- staleness
+    // When this model last changed. Anything that keeps something built from
+    // it -- the viewport's mesh cache is the one that exists -- remembers the
+    // stamp it built at and compares. Same pull-based arrangement as
+    // `World::chunkStamp`, and for the same reason: a dirty flag has to know
+    // when it may be cleared, which means knowing how many caches there are.
+    //
+    // The counter is **global to the process**, not per model, because those
+    // caches are keyed by address. A per-model counter starting at one would
+    // let a freed model and a new one allocated at the same address agree on
+    // a stamp they never shared, and a cache holding the old mesh would call
+    // itself current.
+    uint64_t stamp() const { return stamp_; }
+
 private:
+    // Every mutator ends here, so there is exactly one place that can forget.
+    void touch();
+
     size_t index(IVec3 v) const {
         return (size_t(v.y) * size_t(dims_.z) + size_t(v.z)) * size_t(dims_.x) + size_t(v.x);
     }
@@ -84,6 +101,11 @@ private:
     std::vector<VoxelMaterial> palette_{VoxelMaterial{}};  // slot 0 is the empty sentinel
     size_t solid_ = 0;
     IVec3 min_{0, 0, 0}, max_{0, 0, 0};
+
+    // Zero exactly while the model has never been sized or written to, which
+    // is also the value a cache that has never built anything holds. The two
+    // agreeing is correct: there is nothing to build.
+    uint64_t stamp_ = 0;
 };
 
 } // namespace blocky
